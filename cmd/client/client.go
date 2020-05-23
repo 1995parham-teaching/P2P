@@ -12,7 +12,7 @@ import (
 func Register(root *cobra.Command) {
 	root.AddCommand(
 		&cobra.Command{
-			Use:   "tracker",
+			Use:   "node",
 			Short: "",
 			Long:  "",
 			Run: func(cmd *cobra.Command, args []string) {
@@ -39,8 +39,8 @@ func Register(root *cobra.Command) {
 					cluster = append(cluster, text)
 				}
 
-				node.New("0", cluster)
-
+				n := node.New("0", cluster)
+				n.Run()
 			},
 		},
 	)

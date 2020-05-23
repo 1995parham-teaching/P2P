@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/elahe-dstn/p2p/cmd/client"
 	"github.com/spf13/cobra"
 )
 
@@ -26,7 +27,7 @@ to quickly create a Cobra application.`,
 		//	Run: func(cmd *cobra.Command, args []string) { },
 	}
 
-
+	client.Register(rootCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
