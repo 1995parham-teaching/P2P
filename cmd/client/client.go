@@ -39,7 +39,7 @@ func Register(root *cobra.Command) {
 					cluster = append(cluster, text)
 				}
 
-				n := node.New("0", cluster)
+				n := node.New("127.0.0.1", cluster)
 				n.Run()
 			},
 		},
