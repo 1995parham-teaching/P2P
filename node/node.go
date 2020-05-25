@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -12,26 +13,33 @@ import (
 
 type Node struct {
 	ip              string
+	folder          string
 	Cluster         []string
+	tcpPort			int
 	mutex           *sync.Mutex
 	server          chan string
 	discoveryTicker *time.Ticker
 	waiting         bool
-	waitingTicker *time.Ticker
-	answeringNode 	string
+	waitingTicker   *time.Ticker
+	answeringNode   string
+	req				string
 }
 
-func New(ip string, cluster []string) Node {
-	return Node {
+func New(ip string, folder string, cluster []string) Node {
+	return Node{
 		ip:      ip,
+		folder:  folder,
 		Cluster: cluster,
-		mutex:	&sync.Mutex{},
-		server:	make(chan string),
+		mutex:   &sync.Mutex{},
+		server:  make(chan string),
 	}
 }
 
 func (n *Node) Run() {
 	go n.udpServer()
+	time.Sleep(time.Second)
+
+	go n.tcpServer()
 	time.Sleep(time.Second)
 
 	reader := bufio.NewReader(os.Stdin)
@@ -50,7 +58,8 @@ func (n *Node) Run() {
 		}
 
 		text = strings.TrimSuffix(text, "\n")
-		n.request(text)
+		n.req = text
+		n.request(n.req)
 	}
 
 }
@@ -63,9 +72,9 @@ func (n *Node) udpServer() {
 
 	add, err := net.ResolveUDPAddr("udp", addr.String())
 	print(add)
-	
+
 	ser, err := net.ListenUDP("udp", &addr)
-	
+
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -82,16 +91,48 @@ func (n *Node) udpServer() {
 	n.protocol(message, ser, remoteAddr)
 }
 
-func sendList(conn *net.UDPConn, addr *net.UDPAddr) {
-	_,err := conn.WriteToUDP([]byte("This should be the list"), addr)
+func transfer(conn *net.UDPConn, addr *net.UDPAddr, message string) {
+	_, err := conn.WriteToUDP([]byte(message), addr)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 }
 
-func (n *Node) discover() {
+func (n *Node) tcpServer()  {
+	addr := net.TCPAddr{
+		IP: net.ParseIP(n.ip),
+		Port: 0,
+	}
 
+	l, err := net.ListenTCP("tcp", &addr)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	n.tcpPort = l.Addr().(*net.TCPAddr).Port
+	defer l.Close()
+
+	c, err := l.Accept()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	message := make([]byte, 2048)
+
+	_, err = c.Read(message)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	go send(c)
+
+}
+
+func (n *Node) discover() {
 
 	for {
 		<-n.discoveryTicker.C
@@ -120,12 +161,14 @@ func (n *Node) protocol(message []byte, ser *net.UDPConn, remoteAddr *net.UDPAdd
 	protocol := strings.Split(string(message), ",")
 	t := protocol[0]
 	if t == "get" {
-		go sendList(ser, remoteAddr)
-	}else if t == "list" {
+		go transfer(ser, remoteAddr, "this should be the list")
+	} else if t == "list" {
 		n.merge(protocol[1:])
-	}else if t == "file" {
-		//send yes or no
-	}else if t == "ans" {
+	} else if t == "file" {
+		if n.search(protocol[1]) {
+			go transfer(ser, remoteAddr, fmt.Sprintf("ans,y,%d", n.tcpPort))
+		}
+	} else if t == "ans" {
 		if n.waiting {
 			n.check(protocol[1:])
 		}
@@ -140,14 +183,14 @@ func (n *Node) request(file string) {
 	n.waitingTicker.Stop()
 }
 
-func (n *Node) UdpBroadcast(t string, options ...string)  {
-	for i ,ip := range n.Cluster {
-		conn, err := net.Dial("udp", ip + ":1373")
+func (n *Node) UdpBroadcast(t string, options ...string) {
+	for i, ip := range n.Cluster {
+		conn, err := net.Dial("udp", ip+":1373")
 		if err != nil {
 			n.mutex.Lock()
 
 			n.Cluster[i] = n.Cluster[len(n.Cluster)-1] // Copy last element to index i.
-			n.Cluster[len(n.Cluster)-1] = ""   // Erase last element (write zero value).
+			n.Cluster[len(n.Cluster)-1] = ""           // Erase last element (write zero value).
 			n.Cluster = n.Cluster[:len(n.Cluster)-1]   // Truncate slice.
 
 			n.mutex.Unlock()
@@ -163,7 +206,7 @@ func (n *Node) UdpBroadcast(t string, options ...string)  {
 
 		r := fmt.Sprintf("%s,%s", t, o)
 
-		_,err = conn.Write([]byte(r))
+		_, err = conn.Write([]byte(r))
 
 		if err != nil {
 			fmt.Println(err)
@@ -171,17 +214,55 @@ func (n *Node) UdpBroadcast(t string, options ...string)  {
 	}
 }
 
-func (n *Node) check(ans []string)  {
+func (n *Node) check(ans []string) {
 	if ans[0] == "y" {
 		n.waiting = false
 		n.waitingTicker.Stop()
 		n.answeringNode = ans[1]
 	}
 
-	// ask for file
+	connect()
+}
+
+func (n *Node) search(file string) bool {
+	found := false
+
+	err := filepath.Walk(n.folder, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if file == info.Name(){
+			found = true
+			return nil
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		panic(err)
+	}
+
+	return found
+}
+
+func (n *Node) connect() {
+	c, err := net.Dial("tcp", n.answeringNode)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	_, err = c.Write([]byte(n.req))
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+
 }
 //// returns true if has the file
 //func (n *Node) get(file string) bool {
 //
 //}
-

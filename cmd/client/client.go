@@ -16,9 +16,21 @@ func Register(root *cobra.Command) {
 			Short: "",
 			Long:  "",
 			Run: func(cmd *cobra.Command, args []string) {
+				reader := bufio.NewReader(os.Stdin)
+
+				print("Enter the folder you want to share")
+
+				folder, err := reader.ReadString('\n')
+
+				if err != nil {
+					print(err)
+					return
+				}
+
+				folder = strings.TrimSuffix(folder, "\n")
+
 				// Ask user to give its cluster members
 				print("Enter your cluster members list(enter q for quit)")
-				reader := bufio.NewReader(os.Stdin)
 
 				cluster := make([]string, 0)
 
@@ -39,7 +51,7 @@ func Register(root *cobra.Command) {
 					cluster = append(cluster, text)
 				}
 
-				n := node.New("127.0.0.1", cluster)
+				n := node.New("127.0.0.1", folder, cluster)
 				n.Run()
 			},
 		},
