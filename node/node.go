@@ -11,10 +11,14 @@ import (
 )
 
 type Node struct {
-	ip string
-	Cluster []string
-	mutex *sync.Mutex
-	server chan string
+	ip              string
+	Cluster         []string
+	mutex           *sync.Mutex
+	server          chan string
+	discoveryTicker *time.Ticker
+	waiting         bool
+	waitingTicker *time.Ticker
+	answeringNode 	string
 }
 
 func New(ip string, cluster []string) Node {
@@ -29,23 +33,24 @@ func New(ip string, cluster []string) Node {
 func (n *Node) Run() {
 	go n.udpServer()
 	time.Sleep(time.Second)
-	ticker := time.NewTicker(3 * time.Second)
+
 	reader := bufio.NewReader(os.Stdin)
 
+	n.discoveryTicker = time.NewTicker(3 * time.Second)
+
+	go n.discover()
+	time.Sleep(time.Second)
+
 	for {
-		select {
-		case <-ticker.C:
-			n.discover()
-		default:
-			print("Enter a file you want to download")
-			text, err := reader.ReadString('\n')
+		print("Enter a file you want to download")
+		text, err := reader.ReadString('\n')
 
-			if err != nil {
-				return
-			}
-
-			text = strings.TrimSuffix(text, "\n")
+		if err != nil {
+			return
 		}
+
+		text = strings.TrimSuffix(text, "\n")
+		n.request(text)
 	}
 
 }
@@ -86,27 +91,12 @@ func sendList(conn *net.UDPConn, addr *net.UDPAddr) {
 }
 
 func (n *Node) discover() {
-	p := make([]byte, 2040)
-	for i ,ip := range n.Cluster {
-		conn, err := net.Dial("udp", ip + ":1373")
-		if err != nil {
-			n.mutex.Lock()
 
-			n.Cluster[i] = n.Cluster[len(n.Cluster)-1] // Copy last element to index i.
-			n.Cluster[len(n.Cluster)-1] = ""   // Erase last element (write zero value).
-			n.Cluster = n.Cluster[:len(n.Cluster)-1]   // Truncate slice.
 
-			n.mutex.Unlock()
-			return
-		}
-
-		_,err = conn.Write([]byte("get"))
-
-		if err != nil {
-			fmt.Println(err)
-		}
+	for {
+		<-n.discoveryTicker.C
+		n.UdpBroadcast("get")
 	}
-
 }
 
 func (n *Node) merge(list []string) {
@@ -132,19 +122,64 @@ func (n *Node) protocol(message []byte, ser *net.UDPConn, remoteAddr *net.UDPAdd
 	if t == "get" {
 		go sendList(ser, remoteAddr)
 	}else if t == "list" {
-		n.merge(protocol[1:len(protocol)])
+		n.merge(protocol[1:])
+	}else if t == "file" {
+		//send yes or no
+	}else if t == "ans" {
+		if n.waiting {
+			n.check(protocol[1:])
+		}
 	}
 }
-//func (n *Node) request(file string) {
-//	ready := make([]stri[]ng, 0)
-//
-//	for _, node := range n.Cluster {
-//		//if node.get(file){
-//		//	ready = append(ready, node)
-//		//}
-//	}
-//}
-//
+func (n *Node) request(file string) {
+	n.waiting = true
+	n.waitingTicker = time.NewTicker(5 * time.Second)
+	n.UdpBroadcast("file", file)
+	<-n.waitingTicker.C
+	n.waiting = false
+	n.waitingTicker.Stop()
+}
+
+func (n *Node) UdpBroadcast(t string, options ...string)  {
+	for i ,ip := range n.Cluster {
+		conn, err := net.Dial("udp", ip + ":1373")
+		if err != nil {
+			n.mutex.Lock()
+
+			n.Cluster[i] = n.Cluster[len(n.Cluster)-1] // Copy last element to index i.
+			n.Cluster[len(n.Cluster)-1] = ""   // Erase last element (write zero value).
+			n.Cluster = n.Cluster[:len(n.Cluster)-1]   // Truncate slice.
+
+			n.mutex.Unlock()
+			return
+		}
+
+		o := ""
+		for _, option := range options {
+			o += option
+			o += ","
+		}
+		o = strings.TrimSuffix(o, ",")
+
+		r := fmt.Sprintf("%s,%s", t, o)
+
+		_,err = conn.Write([]byte(r))
+
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+}
+
+func (n *Node) check(ans []string)  {
+	if ans[0] == "y" {
+		n.waiting = false
+		n.waitingTicker.Stop()
+		n.answeringNode = ans[1]
+	}
+
+	// ask for file
+}
 //// returns true if has the file
 //func (n *Node) get(file string) bool {
 //
