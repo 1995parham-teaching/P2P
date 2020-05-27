@@ -3,67 +3,46 @@ package client
 import (
 	"fmt"
 	"net"
-	"sync"
+	"strings"
 	"time"
 
+	"github.com/elahe-dstn/p2p/cluster"
 	"github.com/elahe-dstn/p2p/request"
+	"github.com/elahe-dstn/p2p/response"
 )
 
 type Client struct {
-	DiscoveryTicker *time.Ticker
-	waiting         bool
-	waitingTicker   *time.Ticker
-	Cluster         []string
-	Mutex           *sync.Mutex
-	Req             string
+	Cluster       *cluster.Cluster
+	Req           string
+	waiting       bool
+	waitingTicker *time.Ticker
 }
 
-func New(ticker *time.Ticker, cluster []string) Client {
+func New(cluster *cluster.Cluster) Client {
 	return Client{
-		DiscoveryTicker: ticker,
-		Cluster:         cluster,
-		Mutex:           &sync.Mutex{},
+		Cluster: cluster,
 	}
 }
 
-func (c *Client) Discover() {
+func (c *Client) read(conn net.Conn) {
+	m := make([]byte, 1024)
+
 	for {
-		<-c.DiscoveryTicker.C
-		c.broadcast(request.Discover{}.Marshal())
-	}
-}
-
-func (c *Client) broadcast(t string) {
-	for i, ip := range c.Cluster {
-		conn, err := net.Dial("udp", ip)
-		if err != nil {
-			c.Mutex.Lock()
-
-			c.Cluster[i] = c.Cluster[len(c.Cluster)-1] // Copy last element to index i.
-			c.Cluster[len(c.Cluster)-1] = ""           // Erase last element (write zero value).
-			c.Cluster = c.Cluster[:len(c.Cluster)-1]   // Truncate slice.
-
-			c.Mutex.Unlock()
-			return
-		}
-
-		_, err = conn.Write([]byte(t))
-
+		_, err := conn.Read(m)
 		if err != nil {
 			fmt.Println(err)
 		}
 
-		go read(conn)
-	}
-}
+		res := strings.TrimSuffix(string(m), "\n")
 
-func read(conn net.Conn) {
-	m := make([]byte, 1024)
+		r := response.Unmarshal(res)
 
-	for {
-		conn.Read(m)
+		switch r.(type) {
+		case *response.Discover:
+			clu := r.(*response.Discover)
+			c.Cluster.Merge(clu.List)
+		}
 
-		print(string(m))
 	}
 }
 

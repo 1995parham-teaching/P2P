@@ -2,17 +2,27 @@ package server
 
 import (
 	"fmt"
+	"time"
+
+	"github.com/elahe-dstn/p2p/cluster"
 	"github.com/elahe-dstn/p2p/request"
+	"github.com/elahe-dstn/p2p/response"
+
 	"net"
+	"strings"
 )
 
 type Server struct {
-	IP string
+	IP              string
+	Cluster         *cluster.Cluster
+	DiscoveryTicker *time.Ticker
 }
 
-func New() Server {
+func New(cluster *cluster.Cluster, ticker *time.Ticker) Server {
 	return Server{
-		IP: "127.0.0.1",
+		IP:              "127.0.0.1",
+		Cluster:         cluster,
+		DiscoveryTicker: ticker,
 	}
 }
 
@@ -34,21 +44,27 @@ func (s *Server) Up() {
 
 	message := make([]byte, 2048)
 
-	_, remoteAddr, err := ser.ReadFromUDP(message)
-	if err != nil {
-		fmt.Println(err)
-		return
+	for {
+		_, remoteAddr, err := ser.ReadFromUDP(message)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		r := strings.Split(string(message), "\n")[0]
+
+		r = strings.TrimSuffix(r, "\n")
+
+		req := request.Unmarshal(r)
+
+		s.protocol(req, ser, remoteAddr)
 	}
-
-	req := request.Unmarshal(string(message))
-
-	protocol(req, ser, remoteAddr)
 }
 
-func protocol(req request.Request, ser *net.UDPConn, remoteAddr *net.UDPAddr) {
+func (s *Server) protocol(req request.Request, ser *net.UDPConn, remoteAddr *net.UDPAddr) {
 	switch req.(type) {
 	case request.Discover:
-		go transfer(ser, remoteAddr, "this should be the list")
+		go transfer(ser, remoteAddr, (&response.Discover{List: s.Cluster.List}).Marshal())
 		//case request.File:
 		//	f := req.(request.File)
 		//	if n.Search(f.Name) {
@@ -70,5 +86,12 @@ func transfer(conn *net.UDPConn, addr *net.UDPAddr, message string) {
 	if err != nil {
 		fmt.Println(err)
 		return
+	}
+}
+
+func (s *Server) Discover() {
+	for {
+		<-s.DiscoveryTicker.C
+		s.broadcast()
 	}
 }

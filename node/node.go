@@ -2,11 +2,13 @@ package node
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/elahe-dstn/p2p/cluster"
 	"github.com/elahe-dstn/p2p/udp/client"
 	"github.com/elahe-dstn/p2p/udp/server"
 )
@@ -19,11 +21,12 @@ type Node struct {
 	UdpServer     server.Server
 }
 
-func New(folder string, cluster []string) Node {
+func New(folder string, c []string) Node {
+	clu := cluster.New(c)
 	return Node{
 		folder:    folder,
-		UdpClient: client.New(time.NewTicker(3*time.Second), cluster),
-		UdpServer: server.New(),
+		UdpClient: client.New(&clu),
+		UdpServer: server.New(&clu, time.NewTicker(3*time.Second)),
 	}
 }
 
@@ -43,33 +46,20 @@ func (n *Node) Run() {
 		print("Enter a file you want to download")
 		text, err := reader.ReadString('\n')
 
+		fmt.Println(text)
+
 		if err != nil {
 			return
 		}
 
 		text = strings.TrimSuffix(text, "\n")
+
+		fmt.Println(text)
 		n.UdpClient.Req = text
 		//n.UdpClient.File(n)
 	}
 
 }
-
-//func (n *Node) merge(list []string) {
-//	for _, ip := range list {
-//		exists := false
-//		for _, c := range n.Cluster {
-//			if ip == c {
-//				exists = true
-//			}
-//		}
-//
-//		if !exists {
-//			n.Mutex.Lock()
-//			n.Cluster = append(n.Cluster, ip)
-//			n.Mutex.Unlock()
-//		}
-//	}
-//}
 
 func (n *Node) Search(file string) bool {
 	found := false
