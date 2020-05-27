@@ -2,15 +2,23 @@ package server
 
 import (
 	"fmt"
-	"net"
-
-	"github.com/elahe-dstn/p2p/node"
 	"github.com/elahe-dstn/p2p/request"
+	"net"
 )
 
-func Server(n *node.Node) {
+type Server struct {
+	IP string
+}
+
+func New() Server {
+	return Server{
+		IP: "127.0.0.1",
+	}
+}
+
+func (s *Server) Up() {
 	addr := net.UDPAddr{
-		IP:   net.ParseIP(n.IP),
+		IP:   net.ParseIP(s.IP),
 		Port: 1378,
 	}
 
@@ -34,18 +42,18 @@ func Server(n *node.Node) {
 
 	req := request.Unmarshal(string(message))
 
-	protocol(n, req, ser, remoteAddr)
+	protocol(req, ser, remoteAddr)
 }
 
-func protocol(n *node.Node, req request.Request, ser *net.UDPConn, remoteAddr *net.UDPAddr) {
+func protocol(req request.Request, ser *net.UDPConn, remoteAddr *net.UDPAddr) {
 	switch req.(type) {
 	case request.Discover:
 		go transfer(ser, remoteAddr, "this should be the list")
-	//case request.File:
-	//	f := req.(request.File)
-	//	if n.Search(f.Name) {
-	//		go transfer(ser, remoteAddr, response.File{Answer: true, TcpPort: n.TcpPort}.Marshal())
-	//	}
+		//case request.File:
+		//	f := req.(request.File)
+		//	if n.Search(f.Name) {
+		//		go transfer(ser, remoteAddr, response.File{Answer: true, TcpPort: n.TcpPort}.Marshal())
+		//	}
 	}
 	// if t == "list" {
 	//	n.merge(protocol[1:])
@@ -56,7 +64,6 @@ func protocol(n *node.Node, req request.Request, ser *net.UDPConn, remoteAddr *n
 	//	}
 	//}
 }
-
 
 func transfer(conn *net.UDPConn, addr *net.UDPAddr, message string) {
 	_, err := conn.WriteToUDP([]byte(message), addr)

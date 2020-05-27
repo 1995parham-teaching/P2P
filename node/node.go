@@ -7,37 +7,30 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
-	tcp "github.com/elahe-dstn/p2p/tcp/server"
 	"github.com/elahe-dstn/p2p/udp/client"
-	udp "github.com/elahe-dstn/p2p/udp/server"
+	"github.com/elahe-dstn/p2p/udp/server"
 )
 
 type Node struct {
-	IP            string
 	folder        string
-	Cluster       []string
 	TcpPort       int
-	Mutex         *sync.Mutex
 	answeringNode string
-	Req           string
 	UdpClient     client.Client
+	UdpServer     server.Server
 }
 
 func New(folder string, cluster []string) Node {
 	return Node{
-		IP:        "127.0.0.1",
 		folder:    folder,
-		Cluster:   cluster,
-		Mutex:     &sync.Mutex{},
-		UdpClient: client.New(time.NewTicker(3 * time.Second)),
+		UdpClient: client.New(time.NewTicker(3*time.Second), cluster),
+		UdpServer: server.New(),
 	}
 }
 
 func (n *Node) Run() {
-	go udp.Server(n)
+	go n.UdpServer.Up()
 	time.Sleep(time.Second)
 
 	//go tcp.Server(n)
@@ -45,7 +38,7 @@ func (n *Node) Run() {
 
 	reader := bufio.NewReader(os.Stdin)
 
-	go n.UdpClient.Discover(n)
+	go n.UdpClient.Discover()
 	time.Sleep(time.Second)
 
 	for {
@@ -57,7 +50,7 @@ func (n *Node) Run() {
 		}
 
 		text = strings.TrimSuffix(text, "\n")
-		n.Req = text
+		n.UdpClient.Req = text
 		//n.UdpClient.File(n)
 	}
 
@@ -80,7 +73,6 @@ func (n *Node) merge(list []string) {
 	}
 }
 
-
 func (n *Node) Search(file string) bool {
 	found := false
 
@@ -89,7 +81,7 @@ func (n *Node) Search(file string) bool {
 			return err
 		}
 
-		if file == info.Name(){
+		if file == info.Name() {
 			found = true
 			return nil
 		}
@@ -117,8 +109,8 @@ func (n *Node) connect() {
 		return
 	}
 
-
 }
+
 //// returns true if has the file
 //func (n *Node) get(file string) bool {
 //

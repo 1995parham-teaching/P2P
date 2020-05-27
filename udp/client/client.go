@@ -3,42 +3,47 @@ package client
 import (
 	"fmt"
 	"net"
+	"sync"
 	"time"
 
-	"github.com/elahe-dstn/p2p/node"
 	"github.com/elahe-dstn/p2p/request"
 )
 
 type Client struct {
 	DiscoveryTicker *time.Ticker
-	waiting       bool
-	waitingTicker *time.Ticker
+	waiting         bool
+	waitingTicker   *time.Ticker
+	Cluster         []string
+	Mutex           *sync.Mutex
+	Req             string
 }
 
-func New(ticker *time.Ticker) Client {
+func New(ticker *time.Ticker, cluster []string) Client {
 	return Client{
 		DiscoveryTicker: ticker,
+		Cluster:         cluster,
+		Mutex:           &sync.Mutex{},
 	}
 }
 
-func (c *Client) Discover(n *node.Node)  {
+func (c *Client) Discover() {
 	for {
 		<-c.DiscoveryTicker.C
-		broadcast(n, request.Discover{}.Marshal())
+		c.broadcast(request.Discover{}.Marshal())
 	}
 }
 
-func broadcast(n *node.Node, t string) {
-	for i, ip := range n.Cluster {
+func (c *Client) broadcast(t string) {
+	for i, ip := range c.Cluster {
 		conn, err := net.Dial("udp", ip)
 		if err != nil {
-			n.Mutex.Lock()
+			c.Mutex.Lock()
 
-			n.Cluster[i] = n.Cluster[len(n.Cluster)-1] // Copy last element to index i.
-			n.Cluster[len(n.Cluster)-1] = ""           // Erase last element (write zero value).
-			n.Cluster = n.Cluster[:len(n.Cluster)-1]   // Truncate slice.
+			c.Cluster[i] = c.Cluster[len(c.Cluster)-1] // Copy last element to index i.
+			c.Cluster[len(c.Cluster)-1] = ""           // Erase last element (write zero value).
+			c.Cluster = c.Cluster[:len(c.Cluster)-1]   // Truncate slice.
 
-			n.Mutex.Unlock()
+			c.Mutex.Unlock()
 			return
 		}
 
@@ -62,21 +67,21 @@ func read(conn net.Conn) {
 	}
 }
 
-func (c *Client) File(n *node.Node) {
+func (c *Client) File() {
 	c.waiting = true
 	c.waitingTicker = time.NewTicker(5 * time.Second)
-	broadcast(n, request.File{Name: n.Req}.Marshal())
+	c.broadcast(request.File{Name: c.Req}.Marshal())
 	<-c.waitingTicker.C
 	c.waiting = false
 	c.waitingTicker.Stop()
 }
 
-func (n *Node) check(ans []string) {
-	if ans[0] == "y" {
-		n.waiting = false
-		n.waitingTicker.Stop()
-		n.answeringNode = ans[1]
-	}
-
-	connect()
-}
+//func (n *Node) check(ans []string) {
+//	if ans[0] == "y" {
+//		n.waiting = false
+//		n.waitingTicker.Stop()
+//		n.answeringNode = ans[1]
+//	}
+//
+//	connect()
+//}
