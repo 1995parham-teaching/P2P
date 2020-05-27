@@ -3,43 +3,49 @@ package node
 import (
 	"bufio"
 	"fmt"
+	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/elahe-dstn/p2p/cluster"
-	"github.com/elahe-dstn/p2p/udp/client"
-	"github.com/elahe-dstn/p2p/udp/server"
+	"github.com/elahe-dstn/p2p/tcp/client"
+	tcp "github.com/elahe-dstn/p2p/tcp/server"
+	udp "github.com/elahe-dstn/p2p/udp/server"
+	"github.com/prometheus/common/promlog/flag"
 )
 
 type Node struct {
-	folder        string
-	TcpPort       int
-	answeringNode string
-	UdpClient     client.Client
-	UdpServer     server.Server
+	UdpServer     udp.Server
+	TcpServer	  tcp.Server
+	TcpClient	  client.Client
+	TcpPort		  chan int
+	Addr          chan string
+	fName 		  chan string
 }
 
 func New(folder string, c []string) Node {
+	c = append(c, "127.0.0.1")
 	clu := cluster.New(c)
 	return Node{
-		folder:    folder,
-		UdpClient: client.New(&clu),
-		UdpServer: server.New(&clu, time.NewTicker(3*time.Second)),
+		UdpServer: udp.New(&clu, time.NewTicker(3*time.Second), folder),
+		TcpServer: tcp.New(),
+		TcpPort:   make(chan int, 0),
+		Addr:	   make(chan string, 0),
+		fName:	   make(chan string, 0),
 	}
 }
 
 func (n *Node) Run() {
-	go n.UdpServer.Up()
+	go n.TcpServer.Up(n.TcpPort)
+
+	go n.UdpServer.Up(<-n.TcpPort, n.Addr)
 	time.Sleep(time.Second)
 
-	//go tcp.Server(n)
-	//time.Sleep(time.Second)
+	go n.TcpClient.Connect(<-n.Addr, <-n.fName)
 
 	reader := bufio.NewReader(os.Stdin)
 
-	go n.UdpClient.Discover()
 	time.Sleep(time.Second)
 
 	for {
@@ -55,49 +61,14 @@ func (n *Node) Run() {
 		text = strings.TrimSuffix(text, "\n")
 
 		fmt.Println(text)
-		n.UdpClient.Req = text
-		//n.UdpClient.File(n)
+		n.UdpServer.Req = text
+		n.fName <- text
+		n.UdpServer.File()
 	}
 
 }
 
-func (n *Node) Search(file string) bool {
-	found := false
 
-	err := filepath.Walk(n.folder, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if file == info.Name() {
-			found = true
-			return nil
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		panic(err)
-	}
-
-	return found
-}
-
-//func (n *Node) connect() {
-//	c, err := net.Dial("tcp", n.answeringNode)
-//	if err != nil {
-//		fmt.Println(err)
-//		return
-//	}
-//
-//	_, err = c.Write([]byte(n.Req))
-//	if err != nil {
-//		fmt.Println(err)
-//		return
-//	}
-//
-//}
 
 //// returns true if has the file
 //func (n *Node) get(file string) bool {

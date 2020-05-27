@@ -18,7 +18,7 @@ func New(list []string) Cluster {
 	}
 }
 
-func (c *Cluster) broadcast(t string) {
+func (c *Cluster) Broadcast(t string) {
 	for i, ip := range c.List {
 		conn, err := net.Dial("udp", ip)
 		if err != nil {
