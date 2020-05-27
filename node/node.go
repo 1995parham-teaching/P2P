@@ -2,8 +2,6 @@ package node
 
 import (
 	"bufio"
-	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -56,22 +54,22 @@ func (n *Node) Run() {
 
 }
 
-func (n *Node) merge(list []string) {
-	for _, ip := range list {
-		exists := false
-		for _, c := range n.Cluster {
-			if ip == c {
-				exists = true
-			}
-		}
-
-		if !exists {
-			n.Mutex.Lock()
-			n.Cluster = append(n.Cluster, ip)
-			n.Mutex.Unlock()
-		}
-	}
-}
+//func (n *Node) merge(list []string) {
+//	for _, ip := range list {
+//		exists := false
+//		for _, c := range n.Cluster {
+//			if ip == c {
+//				exists = true
+//			}
+//		}
+//
+//		if !exists {
+//			n.Mutex.Lock()
+//			n.Cluster = append(n.Cluster, ip)
+//			n.Mutex.Unlock()
+//		}
+//	}
+//}
 
 func (n *Node) Search(file string) bool {
 	found := false
@@ -96,20 +94,20 @@ func (n *Node) Search(file string) bool {
 	return found
 }
 
-func (n *Node) connect() {
-	c, err := net.Dial("tcp", n.answeringNode)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	_, err = c.Write([]byte(n.Req))
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-}
+//func (n *Node) connect() {
+//	c, err := net.Dial("tcp", n.answeringNode)
+//	if err != nil {
+//		fmt.Println(err)
+//		return
+//	}
+//
+//	_, err = c.Write([]byte(n.Req))
+//	if err != nil {
+//		fmt.Println(err)
+//		return
+//	}
+//
+//}
 
 //// returns true if has the file
 //func (n *Node) get(file string) bool {

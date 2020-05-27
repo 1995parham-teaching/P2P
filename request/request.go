@@ -37,4 +37,6 @@ func Unmarshal(req string) Request {
 	case message.FILE:
 		return File{}
 	}
+
+	return nil
 }
