@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/elahe-dstn/p2p/tcp"
+	tcp "github.com/elahe-dstn/p2p/tcp/server"
 	"github.com/elahe-dstn/p2p/udp/client"
-	"github.com/elahe-dstn/p2p/udp/server"
+	udp "github.com/elahe-dstn/p2p/udp/server"
 )
 
 type Node struct {
@@ -26,9 +26,9 @@ type Node struct {
 	UdpClient     client.Client
 }
 
-func New(ip string, folder string, cluster []string) Node {
+func New(folder string, cluster []string) Node {
 	return Node{
-		IP:        ip,
+		IP:        "127.0.0.1",
 		folder:    folder,
 		Cluster:   cluster,
 		Mutex:     &sync.Mutex{},
@@ -37,11 +37,11 @@ func New(ip string, folder string, cluster []string) Node {
 }
 
 func (n *Node) Run() {
-	go server.Server(n)
+	go udp.Server(n)
 	time.Sleep(time.Second)
 
-	go tcp.Server(n)
-	time.Sleep(time.Second)
+	//go tcp.Server(n)
+	//time.Sleep(time.Second)
 
 	reader := bufio.NewReader(os.Stdin)
 
@@ -58,7 +58,7 @@ func (n *Node) Run() {
 
 		text = strings.TrimSuffix(text, "\n")
 		n.Req = text
-		n.UdpClient.File(n)
+		//n.UdpClient.File(n)
 	}
 
 }

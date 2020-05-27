@@ -6,7 +6,6 @@ import (
 
 	"github.com/elahe-dstn/p2p/node"
 	"github.com/elahe-dstn/p2p/request"
-	"github.com/elahe-dstn/p2p/response"
 )
 
 func Server(n *node.Node) {
@@ -42,20 +41,20 @@ func protocol(n *node.Node, req request.Request, ser *net.UDPConn, remoteAddr *n
 	switch req.(type) {
 	case request.Discover:
 		go transfer(ser, remoteAddr, "this should be the list")
-	case request.File:
-		f := req.(request.File)
-		if n.Search(f.Name) {
-			go transfer(ser, remoteAddr, response.File{Answer: true, TcpPort: n.TcpPort}.Marshal())
-		}
+	//case request.File:
+	//	f := req.(request.File)
+	//	if n.Search(f.Name) {
+	//		go transfer(ser, remoteAddr, response.File{Answer: true, TcpPort: n.TcpPort}.Marshal())
+	//	}
 	}
-	 if t == "list" {
-		n.merge(protocol[1:])
-	}
-	} else if t == "ans" {
-		if n.waiting {
-			n.check(protocol[1:])
-		}
-	}
+	// if t == "list" {
+	//	n.merge(protocol[1:])
+	//}
+	//} else if t == "ans" {
+	//	if n.waiting {
+	//		n.check(protocol[1:])
+	//	}
+	//}
 }
 
 

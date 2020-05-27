@@ -30,7 +30,7 @@ func (c *Client) Discover(n *node.Node)  {
 
 func broadcast(n *node.Node, t string) {
 	for i, ip := range n.Cluster {
-		conn, err := net.Dial("udp", ip+":1373")
+		conn, err := net.Dial("udp", ip)
 		if err != nil {
 			n.Mutex.Lock()
 
@@ -47,6 +47,18 @@ func broadcast(n *node.Node, t string) {
 		if err != nil {
 			fmt.Println(err)
 		}
+
+		go read(conn)
+	}
+}
+
+func read(conn net.Conn) {
+	m := make([]byte, 1024)
+
+	for {
+		conn.Read(m)
+
+		print(string(m))
 	}
 }
 
