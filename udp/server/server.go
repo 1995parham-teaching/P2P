@@ -6,11 +6,11 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/elahe-dstn/p2p/cluster"
-	"github.com/elahe-dstn/p2p/message"
-
 	"net"
 	"strings"
+
+	"github.com/elahe-dstn/p2p/cluster"
+	"github.com/elahe-dstn/p2p/message"
 )
 
 type Server struct {
@@ -32,7 +32,7 @@ func New(cluster *cluster.Cluster, ticker *time.Ticker, folder string) Server {
 	}
 }
 
-func (s *Server) Up(tcpPort int, request chan string) {
+func (s *Server) Up(tcpPort chan int, request chan string) {
 	addr := net.UDPAddr{
 		IP:   net.ParseIP(s.IP),
 		Port: 1378,
@@ -48,8 +48,6 @@ func (s *Server) Up(tcpPort int, request chan string) {
 		return
 	}
 
-	go s.Discover()
-
 	m := make([]byte, 2048)
 
 	for {
@@ -63,9 +61,11 @@ func (s *Server) Up(tcpPort int, request chan string) {
 
 		r = strings.TrimSuffix(r, "\n")
 
+		fmt.Println(r)
+
 		res := message.Unmarshal(r)
 
-		s.protocol(res, ser, remoteAddr, tcpPort, request)
+		s.protocol(res, ser, remoteAddr, <-tcpPort, request)
 	}
 }
 
@@ -77,7 +77,8 @@ func (s *Server) protocol(res message.Message, ser *net.UDPConn, remoteAddr *net
 	case *message.Get:
 		g := res.(*message.Get)
 		if s.Search(g.Name) {
-			go transfer(ser, remoteAddr, message.File{TcpPort: TcpPort}.Marshal())
+			s.waiting = false
+			go transfer(remoteAddr, (&message.File{TcpPort: TcpPort}).Marshal())
 		}
 	case *message.File:
 		f := res.(*message.File)
@@ -100,8 +101,9 @@ func (s *Server) protocol(res message.Message, ser *net.UDPConn, remoteAddr *net
 	//}
 }
 
-func transfer(conn *net.UDPConn, addr *net.UDPAddr, message string) {
-	_, err := conn.WriteToUDP([]byte(message), addr)
+func transfer(addr *net.UDPAddr, message string) {
+	conn, err := net.Dial("udp", fmt.Sprintf("%s:%d",addr.IP.String(), 1373))
+	_, err = conn.Write([]byte(message))
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -118,7 +120,7 @@ func (s *Server) Discover() {
 func (s *Server) File() {
 	s.waiting = true
 	s.waitingTicker = time.NewTicker(5 * time.Second)
-	s.Cluster.Broadcast(message.Get{Name: s.Req}.Marshal())
+	s.Cluster.Broadcast((&message.Get{Name: s.Req}).Marshal())
 	<-s.waitingTicker.C
 	s.waiting = false
 	s.waitingTicker.Stop()

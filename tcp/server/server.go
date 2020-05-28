@@ -40,6 +40,9 @@ func (s *Server) Up(TcpPort chan int)  {
 	message := make([]byte, 2048)
 
 	_, err = c.Read(message)
+
+	fmt.Println(message)
+
 	if err != nil {
 		fmt.Println(err)
 		return

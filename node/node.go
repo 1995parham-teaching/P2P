@@ -3,7 +3,6 @@ package node
 import (
 	"bufio"
 	"fmt"
-	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -12,7 +11,6 @@ import (
 	"github.com/elahe-dstn/p2p/tcp/client"
 	tcp "github.com/elahe-dstn/p2p/tcp/server"
 	udp "github.com/elahe-dstn/p2p/udp/server"
-	"github.com/prometheus/common/promlog/flag"
 )
 
 type Node struct {
@@ -28,7 +26,7 @@ func New(folder string, c []string) Node {
 	c = append(c, "127.0.0.1")
 	clu := cluster.New(c)
 	return Node{
-		UdpServer: udp.New(&clu, time.NewTicker(3*time.Second), folder),
+		UdpServer: udp.New(&clu, time.NewTicker(5*time.Second), folder),
 		TcpServer: tcp.New(),
 		TcpPort:   make(chan int, 0),
 		Addr:	   make(chan string, 0),
@@ -37,16 +35,15 @@ func New(folder string, c []string) Node {
 }
 
 func (n *Node) Run() {
-	go n.TcpServer.Up(n.TcpPort)
-
-	go n.UdpServer.Up(<-n.TcpPort, n.Addr)
-	time.Sleep(time.Second)
-
-	go n.TcpClient.Connect(<-n.Addr, <-n.fName)
-
 	reader := bufio.NewReader(os.Stdin)
 
-	time.Sleep(time.Second)
+	go n.TcpServer.Up(n.TcpPort)
+
+	go n.UdpServer.Up(n.TcpPort, n.Addr)
+
+	//go n.UdpServer.Discover()
+
+	go n.TcpClient.Connect(n.Addr, n.fName)
 
 	for {
 		print("Enter a file you want to download")
@@ -62,12 +59,11 @@ func (n *Node) Run() {
 
 		fmt.Println(text)
 		n.UdpServer.Req = text
-		n.fName <- text
 		n.UdpServer.File()
+		n.fName <- text
 	}
 
 }
-
 
 
 //// returns true if has the file
