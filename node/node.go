@@ -25,7 +25,7 @@ type Node struct {
 func New(folder string, c []string) Node {
 	clu := cluster.New(c)
 	return Node{
-		UdpServer: udp.New(&clu, time.NewTicker(5*time.Second), folder),
+		UdpServer: udp.New(&clu, time.NewTicker(20*time.Second), folder),
 		TcpServer: tcp.New(folder),
 		TcpClient: client.New(folder),
 		TcpPort:   make(chan int, 0),
@@ -42,7 +42,7 @@ func (n *Node) Run() {
 
 	go n.UdpServer.Up(n.TcpPort, n.Addr)
 
-	//go n.UdpServer.Discover()
+	go n.UdpServer.Discover()
 
 	go n.TcpClient.Connect(n.Addr, n.fName)
 

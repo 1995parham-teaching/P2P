@@ -34,9 +34,10 @@ func New(cluster *cluster.Cluster, ticker *time.Ticker, folder string) Server {
 }
 
 func (s *Server) Up(tcpPort chan int, request chan string) {
+	tPort := <- tcpPort
 	addr := net.UDPAddr{
 		IP:   net.ParseIP(s.IP),
-		Port: 1373,
+		Port: 1378,
 	}
 
 	add, err := net.ResolveUDPAddr("udp", addr.String())
@@ -68,11 +69,12 @@ func (s *Server) Up(tcpPort chan int, request chan string) {
 
 		res := message.Unmarshal(r)
 
-		s.protocol(res, ser, remoteAddr, <-tcpPort, request)
+		s.protocol(res, ser, remoteAddr, tPort, request)
 	}
 }
 
 func (s *Server) protocol(res message.Message, ser *net.UDPConn, remoteAddr *net.UDPAddr, TcpPort int, request chan string) {
+	fmt.Println("protocol")
 	switch res.(type) {
 	case *message.Discover:
 		clu := res.(*message.Discover)

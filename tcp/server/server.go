@@ -37,30 +37,30 @@ func (s *Server) Up(TcpPort chan int)  {
 
 	TcpPort<- s.TcpPort
 
-	defer l.Close()
+	for {
+		c, err := l.Accept()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
 
-	c, err := l.Accept()
-	if err != nil {
-		fmt.Println(err)
-		return
+		m := make([]byte, 2048)
+
+		_, err = c.Read(m)
+
+		fmt.Println(string(m))
+
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		res := message.Unmarshal(string(m))
+		g := res.(*message.Get)
+
+		go s.send(c, g.Name)
+
 	}
-
-	m := make([]byte, 2048)
-
-	_, err = c.Read(m)
-
-	fmt.Println(string(m))
-
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	res := message.Unmarshal(string(m))
-	g := res.(*message.Get)
-
-	go s.send(c, g.Name)
-
 }
 
 func (s *Server) send(conn net.Conn, name string)  {
