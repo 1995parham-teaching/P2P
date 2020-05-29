@@ -64,20 +64,25 @@ func (s *Server) Up(tcpPort chan int) {
 
 func (s *Server) send(conn io.WriteCloser, name string) {
 	fmt.Println("A client has connected!")
+
 	defer conn.Close()
+
 	file, err := os.Open(s.folder + "/" + name)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+
 	fileInfo, err := file.Stat()
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+
 	fileSize := fillString(strconv.FormatInt(fileInfo.Size(), 10), 10)
 	fileName := fillString(fileInfo.Name(), 64)
 	fmt.Println("Sending filename and filesize!")
+
 	_, err = conn.Write([]byte(fileSize))
 	if err != nil {
 		fmt.Println(err)
@@ -88,6 +93,7 @@ func (s *Server) send(conn io.WriteCloser, name string) {
 	}
 	sendBuffer := make([]byte, BUFFERSIZE)
 	fmt.Println("Start sending file!")
+
 	for {
 		_, err = file.Read(sendBuffer)
 		if err == io.EOF {
@@ -98,6 +104,7 @@ func (s *Server) send(conn io.WriteCloser, name string) {
 			fmt.Println(err)
 		}
 	}
+
 	fmt.Println("File has been sent, closing connection!")
 	return
 }
