@@ -10,9 +10,9 @@ import (
 
 type Config struct {
 	Host            string `mapstructure:"host"`
-	Port            int `mapstructure:"port"`
-	DiscoveryPeriod int `mapstructure:"period"`
-	WaitingTime     int `mapstructure:"waiting"`
+	Port            int    `mapstructure:"port"`
+	DiscoveryPeriod int    `mapstructure:"period"`
+	WaitingTime     int    `mapstructure:"waiting"`
 }
 
 func Read() Config {
@@ -40,4 +40,3 @@ func Read() Config {
 
 	return cfg
 }
-
