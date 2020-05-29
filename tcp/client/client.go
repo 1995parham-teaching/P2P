@@ -57,12 +57,11 @@ func (c *Client) Connect(addr chan string, fName chan string) {
 			panic(err)
 		}
 
-
 		fmt.Println("Received file completely!")
 	}
 }
 
-func request(conn net.Conn, fName chan string)  {
+func request(conn net.Conn, fName chan string) {
 	_, err := conn.Write([]byte((&message.Get{Name: <-fName}).Marshal()))
 	if err != nil {
 		fmt.Println(err)
@@ -70,7 +69,7 @@ func request(conn net.Conn, fName chan string)  {
 	}
 }
 
-func read(connection net.Conn, fileSize int64, newFile io.Writer)  {
+func read(connection net.Conn, fileSize int64, newFile io.Writer) {
 	var receivedBytes int64
 
 	for {
@@ -92,6 +91,7 @@ func read(connection net.Conn, fileSize int64, newFile io.Writer)  {
 		if err != nil {
 			fmt.Println(err)
 		}
+
 		receivedBytes += BUFFER
 	}
 }
