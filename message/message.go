@@ -2,6 +2,7 @@ package message
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -51,6 +52,9 @@ func Unmarshal(s string) Message {
 		return &Discover{List: t[1:]}
 	case G:
 		return &Get{Name:t[1]}
+	case F:
+		port, _ := strconv.Atoi(t[1])
+		return &File{TcpPort:port}
 	}
 
 	return nil
