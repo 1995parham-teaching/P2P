@@ -15,20 +15,24 @@ import (
 
 type Server struct {
 	IP              string
+	Port			int
 	Cluster         *cluster.Cluster
 	DiscoveryTicker *time.Ticker
 	waiting         bool
+	WaitingDuration int
 	waitingTicker   *time.Ticker
 	Req             string
 	folder          string
 	conn            *net.UDPConn
 }
 
-func New(cluster *cluster.Cluster, ticker *time.Ticker, folder string) Server {
+func New(ip string, port int, cluster *cluster.Cluster, ticker *time.Ticker, waitingDuration int, folder string) Server {
 	return Server{
-		IP:              "127.0.0.1",
+		IP:              ip,
+		Port: 			 port,
 		Cluster:         cluster,
 		DiscoveryTicker: ticker,
+		WaitingDuration: waitingDuration,
 		folder:          folder,
 	}
 }
@@ -37,7 +41,7 @@ func (s *Server) Up(tcpPort chan int, request chan string) {
 	tPort := <-tcpPort
 	addr := net.UDPAddr{
 		IP:   net.ParseIP(s.IP),
-		Port: 1378,
+		Port: s.Port,
 	}
 
 	_, err := net.ResolveUDPAddr("udp", addr.String())
@@ -77,6 +81,7 @@ func (s *Server) Up(tcpPort chan int, request chan string) {
 
 func (s *Server) protocol(res message.Message, remoteAddr *net.UDPAddr, tcpPort int, request chan string) {
 	fmt.Println("protocol")
+
 	switch t := res.(type) {
 	case *message.Discover:
 		s.Cluster.Merge(t.List)
@@ -89,20 +94,6 @@ func (s *Server) protocol(res message.Message, remoteAddr *net.UDPAddr, tcpPort 
 		s.waiting = false
 		request <- fmt.Sprintf("%s:%d", ip, t.TCPPort)
 	}
-
-	//case request.File:
-	//	f := req.(request.File)
-	//	if n.Search(f.Name) {
-	//		go transfer(ser, remoteAddr, response.File{Answer: true, TcpPort: n.TcpPort}.Marshal())
-	//	}
-	// if t == "list" {
-	//	n.merge(protocol[1:])
-	//}
-	//} else if t == "ans" {
-	//	if n.waiting {
-	//		n.check(protocol[1:])
-	//	}
-	//}
 }
 
 func (s *Server) transfer(addr *net.UDPAddr, message string) {
@@ -122,7 +113,7 @@ func (s *Server) Discover() {
 
 func (s *Server) File() {
 	s.waiting = true
-	s.waitingTicker = time.NewTicker(5 * time.Second)
+	s.waitingTicker = time.NewTicker(time.Duration(s.WaitingDuration) * time.Second)
 	s.Cluster.Broadcast(s.conn, (&message.Get{Name: s.Req}).Marshal())
 	<-s.waitingTicker.C
 	s.waiting = false

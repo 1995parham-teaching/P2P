@@ -81,17 +81,21 @@ func (s *Server) send(conn io.WriteCloser, name string) {
 
 	fileSize := fillString(strconv.FormatInt(fileInfo.Size(), 10), 10)
 	fileName := fillString(fileInfo.Name(), 64)
+
 	fmt.Println("Sending filename and filesize!")
 
 	_, err = conn.Write([]byte(fileSize))
 	if err != nil {
 		fmt.Println(err)
 	}
+
 	_, err = conn.Write([]byte(fileName))
 	if err != nil {
 		fmt.Println(err)
 	}
+
 	sendBuffer := make([]byte, BUFFERSIZE)
+
 	fmt.Println("Start sending file!")
 
 	for {
@@ -99,6 +103,7 @@ func (s *Server) send(conn io.WriteCloser, name string) {
 		if err == io.EOF {
 			break
 		}
+
 		_, err = conn.Write(sendBuffer)
 		if err != nil {
 			fmt.Println(err)
@@ -118,5 +123,6 @@ func fillString(retunString string, toLength int) string {
 		}
 		break
 	}
+
 	return retunString
 }
