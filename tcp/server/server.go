@@ -13,17 +13,17 @@ import (
 const BUFFERSIZE = 1024
 
 type Server struct {
-	TcpPort	int
+	TcpPort int
 	folder  string
 }
 
 func New(folder string) Server {
-	return Server{folder:folder}
+	return Server{folder: folder}
 }
 
-func (s *Server) Up(TcpPort chan int)  {
+func (s *Server) Up(tcpPort chan int) {
 	addr := net.TCPAddr{
-		IP: net.ParseIP("127.0.0.1"),
+		IP:   net.ParseIP("127.0.0.1"),
 		Port: 0,
 	}
 
@@ -35,7 +35,7 @@ func (s *Server) Up(TcpPort chan int)  {
 
 	s.TcpPort = l.Addr().(*net.TCPAddr).Port
 
-	TcpPort<- s.TcpPort
+	tcpPort <- s.TcpPort
 
 	for {
 		c, err := l.Accept()
@@ -63,7 +63,7 @@ func (s *Server) Up(TcpPort chan int)  {
 	}
 }
 
-func (s *Server) send(conn net.Conn, name string)  {
+func (s *Server) send(conn net.Conn, name string) {
 	fmt.Println("A client has connected!")
 	defer conn.Close()
 	file, err := os.Open(s.folder + "/" + name)
@@ -79,8 +79,14 @@ func (s *Server) send(conn net.Conn, name string)  {
 	fileSize := fillString(strconv.FormatInt(fileInfo.Size(), 10), 10)
 	fileName := fillString(fileInfo.Name(), 64)
 	fmt.Println("Sending filename and filesize!")
-	conn.Write([]byte(fileSize))
-	conn.Write([]byte(fileName))
+	_, err = conn.Write([]byte(fileSize))
+	if err != nil {
+		fmt.Println(err)
+	}
+	_, err = conn.Write([]byte(fileName))
+	if err != nil {
+		fmt.Println(err)
+	}
 	sendBuffer := make([]byte, BUFFERSIZE)
 	fmt.Println("Start sending file!")
 	for {
@@ -88,7 +94,10 @@ func (s *Server) send(conn net.Conn, name string)  {
 		if err == io.EOF {
 			break
 		}
-		conn.Write(sendBuffer)
+		_, err = conn.Write(sendBuffer)
+		if err != nil {
+			fmt.Println(err)
+		}
 	}
 	fmt.Println("File has been sent, closing connection!")
 	return
@@ -98,7 +107,7 @@ func fillString(retunString string, toLength int) string {
 	for {
 		lengtString := len(retunString)
 		if lengtString < toLength {
-			retunString = retunString + ":"
+			retunString += ":"
 			continue
 		}
 		break

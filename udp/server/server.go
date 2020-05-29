@@ -17,24 +17,24 @@ type Server struct {
 	IP              string
 	Cluster         *cluster.Cluster
 	DiscoveryTicker *time.Ticker
-	waiting       bool
-	waitingTicker *time.Ticker
-	Req           string
-	folder        string
-	conn 		  *net.UDPConn
+	waiting         bool
+	waitingTicker   *time.Ticker
+	Req             string
+	folder          string
+	conn            *net.UDPConn
 }
 
 func New(cluster *cluster.Cluster, ticker *time.Ticker, folder string) Server {
-	return Server {
+	return Server{
 		IP:              "127.0.0.1",
 		Cluster:         cluster,
 		DiscoveryTicker: ticker,
-		folder:    folder,
+		folder:          folder,
 	}
 }
 
 func (s *Server) Up(tcpPort chan int, request chan string) {
-	tPort := <- tcpPort
+	tPort := <-tcpPort
 	addr := net.UDPAddr{
 		IP:   net.ParseIP(s.IP),
 		Port: 1378,
@@ -69,33 +69,30 @@ func (s *Server) Up(tcpPort chan int, request chan string) {
 
 		res := message.Unmarshal(r)
 
-		s.protocol(res, ser, remoteAddr, tPort, request)
+		s.protocol(res, remoteAddr, tPort, request)
 	}
 }
 
-func (s *Server) protocol(res message.Message, ser *net.UDPConn, remoteAddr *net.UDPAddr, TcpPort int, request chan string) {
+func (s *Server) protocol(res message.Message, remoteAddr *net.UDPAddr, tcpPort int, request chan string) {
 	fmt.Println("protocol")
-	switch res.(type) {
+	switch t := res.(type) {
 	case *message.Discover:
-		clu := res.(*message.Discover)
-		s.Cluster.Merge(clu.List)
+		s.Cluster.Merge(t.List)
 	case *message.Get:
-		g := res.(*message.Get)
-		if s.Search(g.Name) {
-			go s.transfer(remoteAddr, (&message.File{TcpPort: TcpPort}).Marshal())
+		if s.Search(t.Name) {
+			go s.transfer(remoteAddr, (&message.File{TcpPort: tcpPort}).Marshal())
 		}
 	case *message.File:
-		f := res.(*message.File)
 		ip := remoteAddr.IP.String()
 		s.waiting = false
-		request<- fmt.Sprintf("%s:%d", ip, f.TcpPort)
+		request <- fmt.Sprintf("%s:%d", ip, t.TcpPort)
 	}
 
-		//case request.File:
-		//	f := req.(request.File)
-		//	if n.Search(f.Name) {
-		//		go transfer(ser, remoteAddr, response.File{Answer: true, TcpPort: n.TcpPort}.Marshal())
-		//	}
+	//case request.File:
+	//	f := req.(request.File)
+	//	if n.Search(f.Name) {
+	//		go transfer(ser, remoteAddr, response.File{Answer: true, TcpPort: n.TcpPort}.Marshal())
+	//	}
 	// if t == "list" {
 	//	n.merge(protocol[1:])
 	//}
@@ -129,7 +126,6 @@ func (s *Server) File() {
 	s.waiting = false
 	s.waitingTicker.Stop()
 }
-
 
 func (s *Server) Search(file string) bool {
 	found := false

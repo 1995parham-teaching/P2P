@@ -14,12 +14,12 @@ import (
 )
 
 type Node struct {
-	UdpServer     udp.Server
-	TcpServer	  tcp.Server
-	TcpClient	  client.Client
-	TcpPort		  chan int
-	Addr          chan string
-	fName 		  chan string
+	UdpServer udp.Server
+	TcpServer tcp.Server
+	TcpClient client.Client
+	TcpPort   chan int
+	Addr      chan string
+	fName     chan string
 }
 
 func New(folder string, c []string) Node {
@@ -29,9 +29,8 @@ func New(folder string, c []string) Node {
 		TcpServer: tcp.New(folder),
 		TcpClient: client.New(folder),
 		TcpPort:   make(chan int, 0),
-		Addr:	   make(chan string, 0),
-		fName:	   make(chan string, 0),
-
+		Addr:      make(chan string, 0),
+		fName:     make(chan string, 0),
 	}
 }
 
@@ -65,7 +64,6 @@ func (n *Node) Run() {
 	}
 
 }
-
 
 //// returns true if has the file
 //func (n *Node) get(file string) bool {

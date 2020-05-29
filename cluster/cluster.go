@@ -36,11 +36,11 @@ func (c *Cluster) Broadcast(conn *net.UDPConn, t string) {
 		por, _ := strconv.Atoi(arr[1])
 
 		addr := net.UDPAddr{
-			IP:  net.ParseIP(arr[0]) ,
+			IP:   net.ParseIP(arr[0]),
 			Port: por,
 		}
 
-		_, err := conn.WriteToUDP([]byte(t),&addr)
+		_, err := conn.WriteToUDP([]byte(t), &addr)
 
 		if err != nil {
 			fmt.Println(err)

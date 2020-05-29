@@ -7,9 +7,9 @@ import (
 )
 
 const (
-	Disco	= "DISCOVER"
-	G		= "Get"
-	F		= "File"
+	Disco = "DISCOVER"
+	G     = "Get"
+	F     = "File"
 )
 
 type Message interface {
@@ -42,7 +42,6 @@ func (f *File) Marshal() string {
 	return fmt.Sprintf("%s,%d\n", F, f.TcpPort)
 }
 
-
 func Unmarshal(s string) Message {
 	s = strings.Split(s, "\n")[0]
 	t := strings.Split(s, ",")
@@ -51,10 +50,10 @@ func Unmarshal(s string) Message {
 	case Disco:
 		return &Discover{List: t[1:]}
 	case G:
-		return &Get{Name:t[1]}
+		return &Get{Name: t[1]}
 	case F:
 		port, _ := strconv.Atoi(t[1])
-		return &File{TcpPort:port}
+		return &File{TcpPort: port}
 	}
 
 	return nil
