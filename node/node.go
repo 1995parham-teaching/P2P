@@ -20,18 +20,17 @@ type Node struct {
 	TcpPort		  chan int
 	Addr          chan string
 	fName 		  chan string
-	test 		  chan string
 }
 
 func New(folder string, c []string) Node {
 	clu := cluster.New(c)
 	return Node{
 		UdpServer: udp.New(&clu, time.NewTicker(5*time.Second), folder),
-		TcpServer: tcp.New(),
+		TcpServer: tcp.New(folder),
+		TcpClient: client.New(folder),
 		TcpPort:   make(chan int, 0),
 		Addr:	   make(chan string, 0),
 		fName:	   make(chan string, 0),
-		test:      make(chan string, 0),
 
 	}
 }
@@ -41,11 +40,11 @@ func (n *Node) Run() {
 
 	go n.TcpServer.Up(n.TcpPort)
 
-	go n.UdpServer.Up(n.test, n.TcpPort, n.Addr)
+	go n.UdpServer.Up(n.TcpPort, n.Addr)
 
 	//go n.UdpServer.Discover()
 
-	go n.TcpClient.Connect(n.test, n.Addr, n.fName)
+	go n.TcpClient.Connect(n.Addr, n.fName)
 
 	for {
 		print("Enter a file you want to download")
