@@ -34,7 +34,7 @@ func New(folder string, c []string) Node {
 	waitingDuration := cfg.WaitingTime
 
 	return Node{
-		UDPServer: udp.New(ip,port, &clu, time.NewTicker(time.Duration(d)*time.Second), waitingDuration, folder),
+		UDPServer: udp.New(ip, port, &clu, time.NewTicker(time.Duration(d)*time.Second), waitingDuration, folder),
 		TCPServer: tcp.New(folder),
 		TCPClient: client.New(folder),
 		TCPPort:   make(chan int),
