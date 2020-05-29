@@ -62,7 +62,7 @@ func (s *Server) Up(tcpPort chan int) {
 	}
 }
 
-func (s *Server) send(conn net.Conn, name string) {
+func (s *Server) send(conn io.WriteCloser, name string) {
 	fmt.Println("A client has connected!")
 	defer conn.Close()
 	file, err := os.Open(s.folder + "/" + name)

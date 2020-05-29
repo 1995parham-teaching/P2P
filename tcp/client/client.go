@@ -16,7 +16,7 @@ type Client struct {
 	folder string
 }
 
-const BUFFERSIZE = 1024
+const BUFFER = 1024
 
 func New(folder string) Client {
 	return Client{folder: folder}
@@ -24,29 +24,25 @@ func New(folder string) Client {
 
 func (c *Client) Connect(addr chan string, fName chan string) {
 	for {
-		conn, err := net.Dial("tcp", <-addr)
+		connection, err := net.Dial("tcp", <-addr)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
 
-		_, err = conn.Write([]byte((&message.Get{Name: <-fName}).Marshal()))
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
+		request(connection, fName)
 
 		bufferFileName := make([]byte, 64)
 		bufferFileSize := make([]byte, 10)
 
-		_, err = conn.Read(bufferFileSize)
+		_, err = connection.Read(bufferFileSize)
 		if err != nil {
 			fmt.Println(err)
 		}
 
 		fileSize, _ := strconv.ParseInt(strings.Trim(string(bufferFileSize), ":"), 10, 64)
 
-		_, err = conn.Read(bufferFileName)
+		_, err = connection.Read(bufferFileName)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -55,33 +51,47 @@ func (c *Client) Connect(addr chan string, fName chan string) {
 
 		newFile, err := os.Create(filepath.Join(c.folder, filepath.Base(fileName+"getting")))
 
+		read(connection, fileSize, newFile)
+
 		if err != nil {
 			panic(err)
 		}
 
-		var receivedBytes int64
 
-		for {
-			if (fileSize - receivedBytes) < BUFFERSIZE {
-				_, err = io.CopyN(newFile, conn, fileSize-receivedBytes)
-				if err != nil {
-					fmt.Println(err)
-				}
+		fmt.Println("Received file completely!")
+	}
+}
 
-				_, err = conn.Read(make([]byte, (receivedBytes+BUFFERSIZE)-fileSize))
-				if err != nil {
-					fmt.Println(err)
-				}
+func request(conn net.Conn, fName chan string)  {
+	_, err := conn.Write([]byte((&message.Get{Name: <-fName}).Marshal()))
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+}
 
-				break
-			}
-			
-			_, err = io.CopyN(newFile, conn, BUFFERSIZE)
+func read(connection net.Conn, fileSize int64, newFile io.Writer)  {
+	var receivedBytes int64
+
+	for {
+		if (fileSize - receivedBytes) < BUFFER {
+			_, err := io.CopyN(newFile, connection, fileSize-receivedBytes)
 			if err != nil {
 				fmt.Println(err)
 			}
-			receivedBytes += BUFFERSIZE
+
+			_, err = connection.Read(make([]byte, (receivedBytes+BUFFER)-fileSize))
+			if err != nil {
+				fmt.Println(err)
+			}
+
+			break
 		}
-		fmt.Println("Received file completely!")
+
+		_, err := io.CopyN(newFile, connection, BUFFER)
+		if err != nil {
+			fmt.Println(err)
+		}
+		receivedBytes += BUFFER
 	}
 }
