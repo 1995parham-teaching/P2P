@@ -25,13 +25,10 @@ func New(folder string) Client {
 func (c *Client) Connect(addr chan string, fName chan string) {
 	for {
 		conn, err := net.Dial("tcp", <-addr)
-		fmt.Println("rad")
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-
-		defer conn.Close()
 
 		_, err = conn.Write([]byte((&message.Get{Name: <-fName}).Marshal()))
 		if err != nil {

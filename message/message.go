@@ -25,7 +25,7 @@ type Get struct {
 }
 
 type File struct {
-	TcpPort int
+	TCPPort int
 }
 
 func (d *Discover) Marshal() string {
@@ -39,7 +39,7 @@ func (g *Get) Marshal() string {
 }
 
 func (f *File) Marshal() string {
-	return fmt.Sprintf("%s,%d\n", F, f.TcpPort)
+	return fmt.Sprintf("%s,%d\n", F, f.TCPPort)
 }
 
 func Unmarshal(s string) Message {
@@ -53,7 +53,7 @@ func Unmarshal(s string) Message {
 		return &Get{Name: t[1]}
 	case F:
 		port, _ := strconv.Atoi(t[1])
-		return &File{TcpPort: port}
+		return &File{TCPPort: port}
 	}
 
 	return nil

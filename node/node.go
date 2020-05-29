@@ -14,10 +14,10 @@ import (
 )
 
 type Node struct {
-	UdpServer udp.Server
-	TcpServer tcp.Server
-	TcpClient client.Client
-	TcpPort   chan int
+	UDPServer udp.Server
+	TCPServer tcp.Server
+	TCPClient client.Client
+	TCPPort   chan int
 	Addr      chan string
 	fName     chan string
 }
@@ -25,10 +25,10 @@ type Node struct {
 func New(folder string, c []string) Node {
 	clu := cluster.New(c)
 	return Node{
-		UdpServer: udp.New(&clu, time.NewTicker(20*time.Second), folder),
-		TcpServer: tcp.New(folder),
-		TcpClient: client.New(folder),
-		TcpPort:   make(chan int, 0),
+		UDPServer: udp.New(&clu, time.NewTicker(20*time.Second), folder),
+		TCPServer: tcp.New(folder),
+		TCPClient: client.New(folder),
+		TCPPort:   make(chan int, 0),
 		Addr:      make(chan string, 0),
 		fName:     make(chan string, 0),
 	}
@@ -37,13 +37,13 @@ func New(folder string, c []string) Node {
 func (n *Node) Run() {
 	reader := bufio.NewReader(os.Stdin)
 
-	go n.TcpServer.Up(n.TcpPort)
+	go n.TCPServer.Up(n.TCPPort)
 
-	go n.UdpServer.Up(n.TcpPort, n.Addr)
+	go n.UDPServer.Up(n.TCPPort, n.Addr)
 
-	go n.UdpServer.Discover()
+	go n.UDPServer.Discover()
 
-	go n.TcpClient.Connect(n.Addr, n.fName)
+	go n.TCPClient.Connect(n.Addr, n.fName)
 
 	for {
 		print("Enter a file you want to download")
@@ -58,8 +58,8 @@ func (n *Node) Run() {
 		text = strings.TrimSuffix(text, "\n")
 
 		fmt.Println(text)
-		n.UdpServer.Req = text
-		n.UdpServer.File()
+		n.UDPServer.Req = text
+		n.UDPServer.File()
 		n.fName <- text
 	}
 

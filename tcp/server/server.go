@@ -13,7 +13,7 @@ import (
 const BUFFERSIZE = 1024
 
 type Server struct {
-	TcpPort int
+	TCPPort int
 	folder  string
 }
 
@@ -33,9 +33,9 @@ func (s *Server) Up(tcpPort chan int) {
 		return
 	}
 
-	s.TcpPort = l.Addr().(*net.TCPAddr).Port
+	s.TCPPort = l.Addr().(*net.TCPAddr).Port
 
-	tcpPort <- s.TcpPort
+	tcpPort <- s.TCPPort
 
 	for {
 		c, err := l.Accept()
@@ -59,7 +59,6 @@ func (s *Server) Up(tcpPort chan int) {
 		g := res.(*message.Get)
 
 		go s.send(c, g.Name)
-
 	}
 }
 

@@ -40,8 +40,10 @@ func (s *Server) Up(tcpPort chan int, request chan string) {
 		Port: 1378,
 	}
 
-	add, err := net.ResolveUDPAddr("udp", addr.String())
-	print(add)
+	_, err := net.ResolveUDPAddr("udp", addr.String())
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	ser, err := net.ListenUDP("udp", &addr)
 
@@ -80,12 +82,12 @@ func (s *Server) protocol(res message.Message, remoteAddr *net.UDPAddr, tcpPort 
 		s.Cluster.Merge(t.List)
 	case *message.Get:
 		if s.Search(t.Name) {
-			go s.transfer(remoteAddr, (&message.File{TcpPort: tcpPort}).Marshal())
+			go s.transfer(remoteAddr, (&message.File{TCPPort: tcpPort}).Marshal())
 		}
 	case *message.File:
 		ip := remoteAddr.IP.String()
 		s.waiting = false
-		request <- fmt.Sprintf("%s:%d", ip, t.TcpPort)
+		request <- fmt.Sprintf("%s:%d", ip, t.TCPPort)
 	}
 
 	//case request.File:
