@@ -27,7 +27,7 @@ type Server struct {
 }
 
 func New(ip string, port int, cluster *cluster.Cluster,
-		 ticker *time.Ticker, waitingDuration int, folder string) Server {
+	ticker *time.Ticker, waitingDuration int, folder string) Server {
 	return Server{
 		IP:              ip,
 		Port:            port,
