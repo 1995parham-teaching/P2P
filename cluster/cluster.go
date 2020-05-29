@@ -3,6 +3,8 @@ package cluster
 import (
 	"fmt"
 	"net"
+	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -18,21 +20,27 @@ func New(list []string) Cluster {
 	}
 }
 
-func (c *Cluster) Broadcast(t string) {
-	for i, ip := range c.List {
-		conn, err := net.Dial("udp", ip)
-		if err != nil {
-			c.Mutex.Lock()
+func (c *Cluster) Broadcast(conn *net.UDPConn, t string) {
+	for _, ip := range c.List {
+		//if err != nil {
+		//	c.Mutex.Lock()
+		//
+		//	c.List[i] = c.List[len(c.List)-1] // Copy last element to index i.
+		//	c.List[len(c.List)-1] = ""        // Erase last element (write zero value).
+		//	c.List = c.List[:len(c.List)-1]   // Truncate slice.
+		//
+		//	c.Mutex.Unlock()
+		//	return
+		//}
+		arr := strings.Split(ip, ":")
+		por, _ := strconv.Atoi(arr[1])
 
-			c.List[i] = c.List[len(c.List)-1] // Copy last element to index i.
-			c.List[len(c.List)-1] = ""        // Erase last element (write zero value).
-			c.List = c.List[:len(c.List)-1]   // Truncate slice.
-
-			c.Mutex.Unlock()
-			return
+		addr := net.UDPAddr{
+			IP:  net.ParseIP(arr[0]) ,
+			Port: por,
 		}
 
-		_, err = conn.Write([]byte(t))
+		_, err := conn.WriteToUDP([]byte(t),&addr)
 
 		if err != nil {
 			fmt.Println(err)

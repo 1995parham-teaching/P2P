@@ -21,6 +21,7 @@ type Server struct {
 	waitingTicker *time.Ticker
 	Req           string
 	folder        string
+	conn 		  *net.UDPConn
 }
 
 func New(cluster *cluster.Cluster, ticker *time.Ticker, folder string) Server {
@@ -42,6 +43,8 @@ func (s *Server) Up(tcpPort chan int, request chan string) {
 	print(add)
 
 	ser, err := net.ListenUDP("udp", &addr)
+
+	s.conn = ser
 
 	if err != nil {
 		fmt.Println(err)
@@ -77,12 +80,12 @@ func (s *Server) protocol(res message.Message, ser *net.UDPConn, remoteAddr *net
 	case *message.Get:
 		g := res.(*message.Get)
 		if s.Search(g.Name) {
-			s.waiting = false
-			go transfer(remoteAddr, (&message.File{TcpPort: TcpPort}).Marshal())
+			go s.transfer(remoteAddr, (&message.File{TcpPort: TcpPort}).Marshal())
 		}
 	case *message.File:
 		f := res.(*message.File)
 		ip := remoteAddr.IP.String()
+		s.waiting = false
 		request<- fmt.Sprintf("%s:%d", ip, f.TcpPort)
 	}
 
@@ -101,9 +104,8 @@ func (s *Server) protocol(res message.Message, ser *net.UDPConn, remoteAddr *net
 	//}
 }
 
-func transfer(addr *net.UDPAddr, message string) {
-	conn, err := net.Dial("udp", fmt.Sprintf("%s:%d",addr.IP.String(), 1373))
-	_, err = conn.Write([]byte(message))
+func (s *Server) transfer(addr *net.UDPAddr, message string) {
+	_, err := s.conn.WriteToUDP([]byte(message), addr)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -113,14 +115,14 @@ func transfer(addr *net.UDPAddr, message string) {
 func (s *Server) Discover() {
 	for {
 		<-s.DiscoveryTicker.C
-		s.Cluster.Broadcast((&message.Discover{List: s.Cluster.List}).Marshal())
+		s.Cluster.Broadcast(s.conn, (&message.Discover{List: s.Cluster.List}).Marshal())
 	}
 }
 
 func (s *Server) File() {
 	s.waiting = true
 	s.waitingTicker = time.NewTicker(5 * time.Second)
-	s.Cluster.Broadcast((&message.Get{Name: s.Req}).Marshal())
+	s.Cluster.Broadcast(s.conn, (&message.Get{Name: s.Req}).Marshal())
 	<-s.waitingTicker.C
 	s.waiting = false
 	s.waitingTicker.Stop()

@@ -23,7 +23,6 @@ type Node struct {
 }
 
 func New(folder string, c []string) Node {
-	c = append(c, "127.0.0.1")
 	clu := cluster.New(c)
 	return Node{
 		UdpServer: udp.New(&clu, time.NewTicker(5*time.Second), folder),
