@@ -96,7 +96,7 @@ func (s *Server) send(conn io.WriteCloser, name string) {
 
 	sendBuffer := make([]byte, BUFFERSIZE)
 
-	fmt.Println("Start sending file!")
+	fmt.Println("Start sending file")
 
 	for {
 		_, err = file.Read(sendBuffer)
