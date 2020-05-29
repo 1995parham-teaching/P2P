@@ -62,10 +62,4 @@ func (n *Node) Run() {
 		n.UDPServer.File()
 		n.fName <- text
 	}
-
 }
-
-//// returns true if has the file
-//func (n *Node) get(file string) bool {
-//
-//}

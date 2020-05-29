@@ -50,6 +50,7 @@ func (c *Client) Connect(addr chan string, fName chan string) {
 		if err != nil {
 			fmt.Println(err)
 		}
+
 		fileName := strings.Trim(string(bufferFileName), ":")
 
 		newFile, err := os.Create(filepath.Join(c.folder, filepath.Base(fileName+"getting")))
@@ -66,12 +67,15 @@ func (c *Client) Connect(addr chan string, fName chan string) {
 				if err != nil {
 					fmt.Println(err)
 				}
+
 				_, err = conn.Read(make([]byte, (receivedBytes+BUFFERSIZE)-fileSize))
 				if err != nil {
 					fmt.Println(err)
 				}
+
 				break
 			}
+			
 			_, err = io.CopyN(newFile, conn, BUFFERSIZE)
 			if err != nil {
 				fmt.Println(err)
