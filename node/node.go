@@ -37,9 +37,9 @@ func New(folder string, c []string) Node {
 		UDPServer: udp.New(ip,port, &clu, time.NewTicker(time.Duration(d)*time.Second), waitingDuration, folder),
 		TCPServer: tcp.New(folder),
 		TCPClient: client.New(folder),
-		TCPPort:   make(chan int, 0),
-		Addr:      make(chan string, 0),
-		fName:     make(chan string, 0),
+		TCPPort:   make(chan int),
+		Addr:      make(chan string),
+		fName:     make(chan string),
 	}
 }
 
@@ -56,6 +56,7 @@ func (n *Node) Run() {
 
 	for {
 		print("Enter a file you want to download")
+
 		text, err := reader.ReadString('\n')
 
 		fmt.Println(text)

@@ -111,6 +111,7 @@ func (s *Server) send(conn io.WriteCloser, name string) {
 	}
 
 	fmt.Println("File has been sent, closing connection!")
+
 	return
 }
 
@@ -121,6 +122,7 @@ func fillString(retunString string, toLength int) string {
 			retunString += ":"
 			continue
 		}
+
 		break
 	}
 

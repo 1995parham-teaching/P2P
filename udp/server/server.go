@@ -15,7 +15,7 @@ import (
 
 type Server struct {
 	IP              string
-	Port			int
+	Port            int
 	Cluster         *cluster.Cluster
 	DiscoveryTicker *time.Ticker
 	waiting         bool
@@ -26,10 +26,11 @@ type Server struct {
 	conn            *net.UDPConn
 }
 
-func New(ip string, port int, cluster *cluster.Cluster, ticker *time.Ticker, waitingDuration int, folder string) Server {
+func New(ip string, port int, cluster *cluster.Cluster,
+		 ticker *time.Ticker, waitingDuration int, folder string) Server {
 	return Server{
 		IP:              ip,
-		Port: 			 port,
+		Port:            port,
 		Cluster:         cluster,
 		DiscoveryTicker: ticker,
 		WaitingDuration: waitingDuration,
