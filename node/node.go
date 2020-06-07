@@ -55,21 +55,28 @@ func (n *Node) Run() {
 	go n.TCPClient.Connect(n.Addr, n.fName)
 
 	for {
-		print("Enter a file you want to download")
+		fmt.Println("Enter a file you want to download or list to see the cluster")
 
 		text, err := reader.ReadString('\n')
 
-		fmt.Println(text)
 
 		if err != nil {
+			fmt.Println(err)
 			return
 		}
 
 		text = strings.TrimSuffix(text, "\n")
 
 		fmt.Println(text)
-		n.UDPServer.Req = text
-		n.UDPServer.File()
-		n.fName <- text
+
+		req := strings.Split(text, " ")
+
+		if req[0] == "list" {
+			fmt.Println(n.UDPServer.Cluster.List)
+		}else if req[0] == "get"{
+			n.UDPServer.Req = req[1]
+			n.UDPServer.File()
+			n.fName <- req[1]
+		}
 	}
 }
