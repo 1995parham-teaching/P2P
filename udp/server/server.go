@@ -24,6 +24,7 @@ type Server struct {
 	Req             string
 	folder          string
 	conn            *net.UDPConn
+	prior           []string
 }
 
 func New(ip string, port int, cluster *cluster.Cluster,
@@ -91,6 +92,20 @@ func (s *Server) protocol(res message.Message, remoteAddr *net.UDPAddr, tcpPort 
 			go s.transfer(remoteAddr, (&message.File{TCPPort: tcpPort}).Marshal())
 		}
 	case *message.File:
+		// Add to prior list
+		exists := false
+
+		for _, ip := range s.prior {
+			if ip == remoteAddr.String() {
+				exists = true
+				break
+			}
+		}
+
+		if !exists {
+			s.prior = append(s.prior, remoteAddr.String())
+		}
+
 		ip := remoteAddr.IP.String()
 		s.waiting = false
 		request <- fmt.Sprintf("%s:%d", ip, t.TCPPort)
@@ -98,6 +113,19 @@ func (s *Server) protocol(res message.Message, remoteAddr *net.UDPAddr, tcpPort 
 }
 
 func (s *Server) transfer(addr *net.UDPAddr, message string) {
+	exists := false
+
+	for _, ip := range s.prior {
+		if ip == addr.String() {
+			exists = true
+			break
+		}
+	}
+
+	if !exists {
+		time.Sleep(10 * time.Second)
+	}
+	
 	_, err := s.conn.WriteToUDP([]byte(message), addr)
 	if err != nil {
 		fmt.Println(err)
