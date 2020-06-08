@@ -125,7 +125,7 @@ func (s *Server) transfer(addr *net.UDPAddr, message string) {
 	if !exists {
 		time.Sleep(10 * time.Second)
 	}
-	
+
 	_, err := s.conn.WriteToUDP([]byte(message), addr)
 	if err != nil {
 		fmt.Println(err)

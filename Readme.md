@@ -21,3 +21,14 @@ the format of the message should divide these two from each other.
 | Discover,"ip addresses | "Discover,127.0.0.1:1373,127.0.0.1:1378"  |
 | Get,file name          | "Get,resume.pdf                           |
 | File,tcp port          | "File,33680"                              |
+
+## Reliable data transfer 
+
+I'm going to implement different ways:<br/>
+
+1. Using TCP
+2. Stop and wait 
+
+## Stop and wait
+
+In order to implement this protocol I have used alternative sequence number.
