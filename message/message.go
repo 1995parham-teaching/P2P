@@ -16,6 +16,7 @@ const (
 	Name     = "Name"
 	Buffer   = "buffer"
 	BUFFERSIZE = 1024
+	Ack        = "Ack"
 )
 
 type Message interface {
@@ -54,6 +55,10 @@ type FileName struct{
 
 type Segment struct {
 	Part []byte
+	Seq int
+}
+
+type Acknowledgment struct {
 	Seq int
 }
 
@@ -105,6 +110,10 @@ func (s *Segment) Marshal() string {
 	return fmt.Sprintf("%s,%d,%s\n", Buffer, s.Seq, s.Part)
 }
 
+func (a *Acknowledgment) Marshal() string {
+	return fmt.Sprintf("%s,%d\n", Ack, a.Seq)
+}
+
 func Unmarshal(s string) Message {
 	s = strings.Split(s, "\n")[0]
 	t := strings.Split(s, ",")
@@ -147,6 +156,10 @@ func Unmarshal(s string) Message {
 			Part: []byte(t[2]),
 			Seq:  seq,
 		}
+	case Ack:
+		seq,_ := strconv.Atoi(t[1])
+
+		return &Acknowledgment{Seq:seq}
 	}
 
 	return nil

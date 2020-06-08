@@ -206,6 +206,8 @@ func (s *Server) protocol(res message.Message, remoteAddr *net.UDPAddr, tcpPort 
 
 			//receivedBytes += BUFFER
 		}
+	case *message.Acknowledgment:
+		s.SWAck <- t.Seq
 	}
 
 }
