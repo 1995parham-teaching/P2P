@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"net"
@@ -40,7 +41,7 @@ func New(ip string, port int, cluster *cluster.Cluster,
 	}
 }
 
-func (s *Server) Up(tcpPort chan int, request chan string) {
+func (s *Server) Up(tcpPort chan int, request chan string, fName chan string) {
 	tPort := <-tcpPort
 	addr := net.UDPAddr{
 		IP:   net.ParseIP(s.IP),
@@ -70,7 +71,7 @@ func (s *Server) Up(tcpPort chan int, request chan string) {
 			return
 		}
 
-		r := strings.Split(string(m), "\n")[0]
+ 		r := strings.Split(string(m), "\n")[0]
 
 		r = strings.TrimSuffix(r, "\n")
 
@@ -78,16 +79,17 @@ func (s *Server) Up(tcpPort chan int, request chan string) {
 
 		res := message.Unmarshal(r)
 
-		s.protocol(res, remoteAddr, tPort, request)
+		s.protocol(res, remoteAddr, tPort, request, fName)
 	}
 }
 
-func (s *Server) protocol(res message.Message, remoteAddr *net.UDPAddr, tcpPort int, request chan string) {
+func (s *Server) protocol(res message.Message, remoteAddr *net.UDPAddr, tcpPort int, request chan string, fName chan string) {
 	fmt.Println("protocol")
 
 	switch t := res.(type) {
 	case *message.Discover:
-		s.Cluster.Merge(s.IP + string(s.Port), t.List)
+		port:= strconv.Itoa(s.Port)
+		s.Cluster.Merge(s.IP + ":" + port, t.List)
 	case *message.Get:
 		if s.Search(t.Name) {
 			go s.transfer(remoteAddr, (&message.File{TCPPort: tcpPort}).Marshal())
@@ -111,6 +113,7 @@ func (s *Server) protocol(res message.Message, remoteAddr *net.UDPAddr, tcpPort 
 			ip := remoteAddr.IP.String()
 			s.waiting = false
 			request <- fmt.Sprintf("%s:%d", ip, t.TCPPort)
+			fName <- s.Req
 		}
 	}
 }
@@ -149,7 +152,6 @@ func (s *Server) File() {
 	s.Cluster.Broadcast(s.conn, (&message.Get{Name: s.Req}).Marshal())
 	<-s.waitingTicker.C
 	s.waiting = false
-
 	s.waitingTicker.Stop()
 }
 

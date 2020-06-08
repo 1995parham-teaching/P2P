@@ -38,7 +38,7 @@ func New(folder string, c []string) Node {
 		TCPServer: tcp.New(folder),
 		TCPClient: client.New(folder),
 		TCPPort:   make(chan int),
-		Addr:      make(chan string),
+		Addr:      make(chan string, 1),
 		fName:     make(chan string),
 	}
 }
@@ -48,7 +48,7 @@ func (n *Node) Run() {
 
 	go n.TCPServer.Up(n.TCPPort)
 
-	go n.UDPServer.Up(n.TCPPort, n.Addr)
+	go n.UDPServer.Up(n.TCPPort, n.Addr, n.fName)
 
 	go n.UDPServer.Discover()
 
@@ -73,10 +73,10 @@ func (n *Node) Run() {
 
 		if req[0] == "list" {
 			fmt.Println(n.UDPServer.Cluster.List)
-		}else if req[0] == "get"{
+		}else if req[0] == "get" {
 			n.UDPServer.Req = req[1]
 			n.UDPServer.File()
-			n.fName <- req[1]
+			//n.fName <- req[1]
 		}
 	}
 }
