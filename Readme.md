@@ -31,4 +31,4 @@ I'm going to implement different ways:<br/>
 
 ## Stop and wait
 
-In order to implement this protocol I have used alternative sequence number.
+In order to implement this protocol I have used alternating bit sequence number.

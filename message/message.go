@@ -10,6 +10,8 @@ const (
 	Disco = "DISCOVER"
 	G     = "Get"
 	F     = "File"
+	SW	  = "SW"
+	Ask   = "Ask"
 )
 
 type Message interface {
@@ -28,6 +30,14 @@ type File struct {
 	TCPPort int
 }
 
+type StopWait struct {
+
+}
+
+type AskFile struct {
+	Name  string
+}
+
 func (d *Discover) Marshal() string {
 	list := strings.Join(d.List, ",")
 
@@ -42,6 +52,14 @@ func (f *File) Marshal() string {
 	return fmt.Sprintf("%s,%d\n", F, f.TCPPort)
 }
 
+func (s *StopWait) Marshal() string {
+	return fmt.Sprintf("%s\n", SW)
+}
+
+func (a *AskFile) Marshal() string {
+	return fmt.Sprintf("%s,%s\n", Ask, a.Name)
+}
+
 func Unmarshal(s string) Message {
 	s = strings.Split(s, "\n")[0]
 	t := strings.Split(s, ",")
@@ -54,6 +72,8 @@ func Unmarshal(s string) Message {
 	case F:
 		port, _ := strconv.Atoi(t[1])
 		return &File{TCPPort: port}
+	case SW:
+		return &StopWait{}
 	}
 
 	return nil

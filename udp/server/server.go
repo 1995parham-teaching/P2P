@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -13,6 +14,8 @@ import (
 	"github.com/elahe-dstn/p2p/cluster"
 	"github.com/elahe-dstn/p2p/message"
 )
+
+const BUFFERSIZE = 1024
 
 type Server struct {
 	IP              string
@@ -26,6 +29,8 @@ type Server struct {
 	folder          string
 	conn            *net.UDPConn
 	prior           []string
+	SWAddr          *net.UDPAddr
+	SWAck           chan int
 }
 
 func New(ip string, port int, cluster *cluster.Cluster,
@@ -38,6 +43,7 @@ func New(ip string, port int, cluster *cluster.Cluster,
 		WaitingDuration: waitingDuration,
 		folder:          folder,
 		prior:           make([]string, 0),
+		SWAck:           make(chan int),
 	}
 }
 
@@ -92,7 +98,8 @@ func (s *Server) protocol(res message.Message, remoteAddr *net.UDPAddr, tcpPort 
 		s.Cluster.Merge(s.IP + ":" + port, t.List)
 	case *message.Get:
 		if s.Search(t.Name) {
-			go s.transfer(remoteAddr, (&message.File{TCPPort: tcpPort}).Marshal())
+			//go s.transfer(remoteAddr, (&message.File{TCPPort: tcpPort}).Marshal())
+			go s.transfer(remoteAddr, (&message.StopWait{}).Marshal())
 		}
 	case *message.File:
 		if s.waiting {
@@ -115,6 +122,30 @@ func (s *Server) protocol(res message.Message, remoteAddr *net.UDPAddr, tcpPort 
 			request <- fmt.Sprintf("%s:%d", ip, t.TCPPort)
 			fName <- s.Req
 		}
+	case *message.StopWait:
+		if s.waiting {
+			// Add to prior list
+			exists := false
+
+			for _, ip := range s.prior {
+				if ip == remoteAddr.String() {
+					exists = true
+					break
+				}
+			}
+
+			if !exists {
+				s.prior = append(s.prior, remoteAddr.String())
+			}
+
+			s.SWAddr = remoteAddr
+			s.waiting = false
+		}
+
+		s.AskFile()
+
+	case *message.AskFile:
+		go s.StopWait(t.Name)
 	}
 }
 
@@ -178,6 +209,148 @@ func (s *Server) Search(file string) bool {
 	return found
 }
 
-func Connect(port int) {
+func (s *Server) AskFile() {
+	_, err := s.conn.WriteToUDP([]byte((&message.AskFile{Name:s.Req}).Marshal()), s.SWAddr)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+}
 
+func (s *Server) StopWait(name string) {
+	fmt.Println("A stop and wait client has connected!")
+
+	file, err := os.Open(s.folder + "/" + name)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	fileInfo, err := file.Stat()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+
+	fileSize := fillString(strconv.FormatInt(fileInfo.Size(), 10), 10)
+	fileName := fillString(fileInfo.Name(), 64)
+
+	fmt.Println("Sending filename and filesize!")
+
+	seq := 0
+
+	_, err = s.conn.WriteToUDP([]byte(fileSize), s.SWAddr)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	for {
+		ticker := time.NewTicker(6 * time.Second)
+		b := false
+
+		select {
+		case <-ticker.C:
+			_, err = s.conn.WriteToUDP([]byte(fileSize), s.SWAddr)
+			if err != nil {
+				fmt.Println(err)
+			}
+		case ack := <-s.SWAck:
+			if ack == seq {
+				seq += 1
+				seq %= 2
+				b = true
+				break
+			}
+		}
+
+		if b {
+			break
+		}
+	}
+
+	_, err = s.conn.WriteToUDP([]byte(fileName), s.SWAddr)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	for {
+		ticker := time.NewTicker(6 * time.Second)
+		b := false
+
+		select {
+		case <-ticker.C:
+			_, err = s.conn.WriteToUDP([]byte(fileName), s.SWAddr)
+			if err != nil {
+				fmt.Println(err)
+			}
+		case ack := <-s.SWAck:
+			if ack == seq {
+				seq += 1
+				seq %= 2
+				b = true
+				break
+			}
+		}
+
+		if b {
+			break
+		}
+	}
+
+	sendBuffer := make([]byte, BUFFERSIZE)
+
+	fmt.Println("Start sending file")
+
+	for {
+		_, err = file.Read(sendBuffer)
+		if err == io.EOF {
+			break
+		}
+
+		_, err = s.conn.WriteToUDP(sendBuffer, s.SWAddr)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		for {
+			ticker := time.NewTicker(6 * time.Second)
+			b := false
+
+			select {
+			case <-ticker.C:
+				_, err = s.conn.WriteToUDP(sendBuffer, s.SWAddr)
+				if err != nil {
+					fmt.Println(err)
+				}
+			case ack := <-s.SWAck:
+				if ack == seq {
+					seq += 1
+					seq %= 2
+					b = true
+					break
+				}
+			}
+
+			if b {
+				break
+			}
+		}
+	}
+
+	fmt.Println("File has been sent, closing connection!")
+}
+
+func fillString(retunString string, toLength int) string {
+	for {
+		lengtString := len(retunString)
+		if lengtString < toLength {
+			retunString += ":"
+			continue
+		}
+
+		break
+	}
+
+	return retunString
 }
