@@ -31,6 +31,9 @@ type Server struct {
 	prior           []string
 	SWAddr          *net.UDPAddr
 	SWAck           chan int
+	seq             int
+	fileName		string
+	fileSize		int64
 }
 
 func New(ip string, port int, cluster *cluster.Cluster,
@@ -142,11 +145,23 @@ func (s *Server) protocol(res message.Message, remoteAddr *net.UDPAddr, tcpPort 
 			s.waiting = false
 		}
 
+		s.seq = 0
 		s.AskFile()
 
 	case *message.AskFile:
 		go s.StopWait(t.Name)
+	case *message.Size:
+		if t.Seq == s.seq {
+			s.seq += 1
+			s.seq %= 2
+		}
+
+		s.fileSize = t.Size
+
+	case *message.:
+
 	}
+
 }
 
 func (s *Server) transfer(addr *net.UDPAddr, message string) {
@@ -232,13 +247,11 @@ func (s *Server) StopWait(name string) {
 		return
 	}
 
-
-	fileSize := fillString(strconv.FormatInt(fileInfo.Size(), 10), 10)
-	fileName := fillString(fileInfo.Name(), 64)
-
 	fmt.Println("Sending filename and filesize!")
 
 	seq := 0
+
+	fileSize := (&message.Size{Size:fileInfo.Size(), Seq:seq}).Marshal()
 
 	_, err = s.conn.WriteToUDP([]byte(fileSize), s.SWAddr)
 	if err != nil {
@@ -269,6 +282,8 @@ func (s *Server) StopWait(name string) {
 		}
 	}
 
+	fileName := (&message.FileName{Name:fileInfo.Name(), Seq:seq}).Marshal()
+
 	_, err = s.conn.WriteToUDP([]byte(fileName), s.SWAddr)
 	if err != nil {
 		fmt.Println(err)
@@ -298,7 +313,7 @@ func (s *Server) StopWait(name string) {
 		}
 	}
 
-	sendBuffer := make([]byte, BUFFERSIZE)
+	sendBuffer := make([]byte, BUFFERSIZE - 2)
 
 	fmt.Println("Start sending file")
 
@@ -308,7 +323,14 @@ func (s *Server) StopWait(name string) {
 			break
 		}
 
-		_, err = s.conn.WriteToUDP(sendBuffer, s.SWAddr)
+		send := make([]byte, BUFFERSIZE)
+		send = []byte(strconv.Itoa(seq) + ",")
+
+		for _, by := range sendBuffer {
+			send = append(send, by)
+		}
+
+		_, err = s.conn.WriteToUDP(send, s.SWAddr)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -319,7 +341,7 @@ func (s *Server) StopWait(name string) {
 
 			select {
 			case <-ticker.C:
-				_, err = s.conn.WriteToUDP(sendBuffer, s.SWAddr)
+				_, err = s.conn.WriteToUDP(send, s.SWAddr)
 				if err != nil {
 					fmt.Println(err)
 				}
@@ -339,18 +361,4 @@ func (s *Server) StopWait(name string) {
 	}
 
 	fmt.Println("File has been sent, closing connection!")
-}
-
-func fillString(retunString string, toLength int) string {
-	for {
-		lengtString := len(retunString)
-		if lengtString < toLength {
-			retunString += ":"
-			continue
-		}
-
-		break
-	}
-
-	return retunString
 }
