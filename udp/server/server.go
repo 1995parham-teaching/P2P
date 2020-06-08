@@ -29,13 +29,14 @@ type Server struct {
 
 func New(ip string, port int, cluster *cluster.Cluster,
 	ticker *time.Ticker, waitingDuration int, folder string) Server {
-	return Server{
+	return Server {
 		IP:              ip,
 		Port:            port,
 		Cluster:         cluster,
 		DiscoveryTicker: ticker,
 		WaitingDuration: waitingDuration,
 		folder:          folder,
+		prior:           make([]string, 0),
 	}
 }
 
@@ -86,29 +87,31 @@ func (s *Server) protocol(res message.Message, remoteAddr *net.UDPAddr, tcpPort 
 
 	switch t := res.(type) {
 	case *message.Discover:
-		s.Cluster.Merge(t.List)
+		s.Cluster.Merge(s.IP + string(s.Port), t.List)
 	case *message.Get:
 		if s.Search(t.Name) {
 			go s.transfer(remoteAddr, (&message.File{TCPPort: tcpPort}).Marshal())
 		}
 	case *message.File:
-		// Add to prior list
-		exists := false
+		if s.waiting {
+			// Add to prior list
+			exists := false
 
-		for _, ip := range s.prior {
-			if ip == remoteAddr.String() {
-				exists = true
-				break
+			for _, ip := range s.prior {
+				if ip == remoteAddr.String() {
+					exists = true
+					break
+				}
 			}
-		}
 
-		if !exists {
-			s.prior = append(s.prior, remoteAddr.String())
-		}
+			if !exists {
+				s.prior = append(s.prior, remoteAddr.String())
+			}
 
-		ip := remoteAddr.IP.String()
-		s.waiting = false
-		request <- fmt.Sprintf("%s:%d", ip, t.TCPPort)
+			ip := remoteAddr.IP.String()
+			s.waiting = false
+			request <- fmt.Sprintf("%s:%d", ip, t.TCPPort)
+		}
 	}
 }
 
@@ -146,6 +149,7 @@ func (s *Server) File() {
 	s.Cluster.Broadcast(s.conn, (&message.Get{Name: s.Req}).Marshal())
 	<-s.waitingTicker.C
 	s.waiting = false
+
 	s.waitingTicker.Stop()
 }
 

@@ -48,12 +48,12 @@ func (c *Cluster) Broadcast(conn *net.UDPConn, t string) {
 	}
 }
 
-func (c *Cluster) Merge(list []string) {
+func (c *Cluster) Merge(host string, list []string) {
 	for _, ip := range list {
 		exists := false
 
 		for _, c := range c.List {
-			if ip == c {
+			if ip == c || ip == host {
 				exists = true
 			}
 		}
