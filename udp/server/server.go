@@ -32,13 +32,14 @@ type Server struct {
 	SWAddr          *net.UDPAddr
 	SWAck           chan int
 	seq             int
-	fileName		string
-	fileSize		int64
+	fileName        string
+	fileSize        int64
+	newFile		   *os.File
 }
 
 func New(ip string, port int, cluster *cluster.Cluster,
 	ticker *time.Ticker, waitingDuration int, folder string) Server {
-	return Server {
+	return Server{
 		IP:              ip,
 		Port:            port,
 		Cluster:         cluster,
@@ -80,7 +81,7 @@ func (s *Server) Up(tcpPort chan int, request chan string, fName chan string) {
 			return
 		}
 
- 		r := strings.Split(string(m), "\n")[0]
+		r := strings.Split(string(m), "\n")[0]
 
 		r = strings.TrimSuffix(r, "\n")
 
@@ -97,8 +98,8 @@ func (s *Server) protocol(res message.Message, remoteAddr *net.UDPAddr, tcpPort 
 
 	switch t := res.(type) {
 	case *message.Discover:
-		port:= strconv.Itoa(s.Port)
-		s.Cluster.Merge(s.IP + ":" + port, t.List)
+		port := strconv.Itoa(s.Port)
+		s.Cluster.Merge(s.IP+":"+port, t.List)
 	case *message.Get:
 		if s.Search(t.Name) {
 			//go s.transfer(remoteAddr, (&message.File{TCPPort: tcpPort}).Marshal())
@@ -158,8 +159,53 @@ func (s *Server) protocol(res message.Message, remoteAddr *net.UDPAddr, tcpPort 
 
 		s.fileSize = t.Size
 
-	case *message.:
+	case *message.FileName:
+		if t.Seq == s.seq {
+			s.seq += 1
+			s.seq %= 2
+		}
 
+		s.fileName = t.Name
+
+		newFile, err := os.Create(filepath.Join(s.folder, filepath.Base(s.fileName+"getting")))
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		s.newFile = newFile
+
+	case *message.Segment:
+		if t.Seq == s.seq {
+			s.seq += 1
+			s.seq %= 2
+		}
+
+		segment := t.Part
+
+		//var receivedBytes int64
+
+		for {
+			//if (s.fileSize - receivedBytes) < BUFFERSIZE {
+			//	s.newFile.Write(), connection, fileSize-receivedBytes)
+			//	if err != nil {
+			//		fmt.Println(err)
+			//	}
+			//
+			//	_, err = connection.Read(make([]byte, (receivedBytes+BUFFER)-fileSize))
+			//	if err != nil {
+			//		fmt.Println(err)
+			//	}
+			//
+			//	break
+			//}
+
+			_, err := s.newFile.Write(segment)
+			if err != nil {
+				fmt.Println(err)
+			}
+
+			//receivedBytes += BUFFER
+		}
 	}
 
 }
@@ -225,7 +271,7 @@ func (s *Server) Search(file string) bool {
 }
 
 func (s *Server) AskFile() {
-	_, err := s.conn.WriteToUDP([]byte((&message.AskFile{Name:s.Req}).Marshal()), s.SWAddr)
+	_, err := s.conn.WriteToUDP([]byte((&message.AskFile{Name: s.Req}).Marshal()), s.SWAddr)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -251,7 +297,7 @@ func (s *Server) StopWait(name string) {
 
 	seq := 0
 
-	fileSize := (&message.Size{Size:fileInfo.Size(), Seq:seq}).Marshal()
+	fileSize := (&message.Size{Size: fileInfo.Size(), Seq: seq}).Marshal()
 
 	_, err = s.conn.WriteToUDP([]byte(fileSize), s.SWAddr)
 	if err != nil {
@@ -282,7 +328,7 @@ func (s *Server) StopWait(name string) {
 		}
 	}
 
-	fileName := (&message.FileName{Name:fileInfo.Name(), Seq:seq}).Marshal()
+	fileName := (&message.FileName{Name: fileInfo.Name(), Seq: seq}).Marshal()
 
 	_, err = s.conn.WriteToUDP([]byte(fileName), s.SWAddr)
 	if err != nil {
@@ -313,7 +359,7 @@ func (s *Server) StopWait(name string) {
 		}
 	}
 
-	sendBuffer := make([]byte, BUFFERSIZE - 2)
+	sendBuffer := make([]byte, BUFFERSIZE-9)
 
 	fmt.Println("Start sending file")
 
@@ -323,12 +369,12 @@ func (s *Server) StopWait(name string) {
 			break
 		}
 
-		send := make([]byte, BUFFERSIZE)
-		send = []byte(strconv.Itoa(seq) + ",")
+		buffer := (&message.Segment{
+			Part: string(sendBuffer),
+			Seq:  seq,
+		}).Marshal()
 
-		for _, by := range sendBuffer {
-			send = append(send, by)
-		}
+		send := []byte(buffer)
 
 		_, err = s.conn.WriteToUDP(send, s.SWAddr)
 		if err != nil {

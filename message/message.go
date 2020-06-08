@@ -15,6 +15,7 @@ const (
 	FileSize = "FSize"
 	Name     = "Name"
 	Buffer   = "buffer"
+	BUFFERSIZE = 1024
 )
 
 type Message interface {
@@ -52,7 +53,8 @@ type FileName struct{
 }
 
 type Segment struct {
-
+	Part []byte
+	Seq int
 }
 
 func (d *Discover) Marshal() string {
@@ -83,7 +85,7 @@ func (s *Size) Marshal() string {
 	fileSize += ","
 	fileSize += strconv.FormatInt(s.Size, 10)
 	fileSize += "\n"
-	fileSize = fillString(fileSize, 10)
+	//fileSize = fillString(fileSize, 10)
 
 	return fileSize
 }
@@ -94,7 +96,13 @@ func (n *FileName) Marshal() string {
 	fileName += ","
 	fileName += n.Name
 	fileName += "\n"
-	fileName = fillString(fileName, 64)
+	//fileName = fillString(fileName, 64)
+
+	return fileName
+}
+
+func (s *Segment) Marshal() string {
+	return fmt.Sprintf("%s,%d,%s\n", Buffer, s.Seq, s.Part)
 }
 
 func Unmarshal(s string) Message {
@@ -130,6 +138,13 @@ func Unmarshal(s string) Message {
 
 		return &FileName{
 			Name: name,
+			Seq:  seq,
+		}
+	case Buffer:
+		seq,_ := strconv.Atoi(t[1])
+
+		return &Segment{
+			Part: []byte(t[2]),
 			Seq:  seq,
 		}
 	}
