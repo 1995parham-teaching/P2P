@@ -144,12 +144,13 @@ func (s *Server) protocol(res message.Message, remoteAddr *net.UDPAddr, tcpPort 
 
 			s.SWAddr = remoteAddr
 			s.waiting = false
+
+			s.seq = 0
+			s.AskFile()
 		}
 
-		s.seq = 0
-		s.AskFile()
-
 	case *message.AskFile:
+		s.SWAddr = remoteAddr
 		go s.StopWait(t.Name)
 	case *message.Size:
 		if t.Seq == s.seq {
@@ -203,6 +204,8 @@ func (s *Server) protocol(res message.Message, remoteAddr *net.UDPAddr, tcpPort 
 			if err != nil {
 				fmt.Println(err)
 			}
+
+			go s.sendAck()
 
 			//receivedBytes += BUFFER
 		}
@@ -372,7 +375,7 @@ func (s *Server) StopWait(name string) {
 		}
 
 		buffer := (&message.Segment{
-			Part: string(sendBuffer),
+			Part: sendBuffer,
 			Seq:  seq,
 		}).Marshal()
 
@@ -409,4 +412,11 @@ func (s *Server) StopWait(name string) {
 	}
 
 	fmt.Println("File has been sent, closing connection!")
+}
+
+func (s *Server) sendAck() {
+	_, err := s.conn.WriteToUDP([]byte((&message.Acknowledgment{Seq:s.seq}).Marshal()), s.SWAddr)
+	if err != nil {
+		fmt.Println(err)
+	}
 }
