@@ -385,13 +385,14 @@ func (s *Server) StopWait(name string) {
 	fmt.Println("Start sending file")
 
 	for {
-		_, err = file.Read(sendBuffer)
+		read, err := file.Read(sendBuffer)
 		if err == io.EOF {
 			break
 		}
 
+		sendBuff := sendBuffer[0:read]
 		buffer := (&message.Segment{
-			Part: sendBuffer,
+			Part: sendBuff,
 			Seq:  seq,
 		}).Marshal()
 
