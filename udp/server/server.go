@@ -150,42 +150,53 @@ func (s *Server) protocol(res message.Message, remoteAddr *net.UDPAddr, tcpPort 
 		}
 
 	case *message.AskFile:
+		fmt.Println("the other asked for file")
 		s.SWAddr = remoteAddr
 		go s.StopWait(t.Name)
+
 	case *message.Size:
+		fmt.Println("recieved size the seq is")
+		fmt.Println(t.Seq)
 		if t.Seq == s.seq {
 			s.seq += 1
 			s.seq %= 2
+
+			s.fileSize = t.Size
 		}
 
-		s.fileSize = t.Size
+		go s.sendAck(t.Seq)
 
 	case *message.FileName:
+		fmt.Println("recieved file name the seq is")
+		fmt.Println(t.Seq)
 		if t.Seq == s.seq {
 			s.seq += 1
 			s.seq %= 2
+
+			s.fileName = t.Name
+
+			newFile, err := os.Create(filepath.Join(s.folder, filepath.Base(s.fileName+"getting")))
+			if err != nil {
+				fmt.Println(err)
+			}
+
+			s.newFile = newFile
 		}
 
-		s.fileName = t.Name
-
-		newFile, err := os.Create(filepath.Join(s.folder, filepath.Base(s.fileName+"getting")))
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		s.newFile = newFile
+		go s.sendAck(t.Seq)
 
 	case *message.Segment:
+		fmt.Println("recieved segment the seq is")
+		fmt.Println(t.Seq)
 		if t.Seq == s.seq {
 			s.seq += 1
 			s.seq %= 2
-		}
 
-		segment := t.Part
+			segment := t.Part
 
-		//var receivedBytes int64
+			//var receivedBytes int64
 
-		for {
+			//for {
 			//if (s.fileSize - receivedBytes) < BUFFERSIZE {
 			//	s.newFile.Write(), connection, fileSize-receivedBytes)
 			//	if err != nil {
@@ -205,12 +216,17 @@ func (s *Server) protocol(res message.Message, remoteAddr *net.UDPAddr, tcpPort 
 				fmt.Println(err)
 			}
 
-			go s.sendAck()
-
 			//receivedBytes += BUFFER
+			//}
+
 		}
+
+		go s.sendAck(t.Seq)
+
 	case *message.Acknowledgment:
 		s.SWAck <- t.Seq
+		fmt.Println("Recieved ack and the seq is")
+		fmt.Println(t.Seq)
 	}
 
 }
@@ -414,8 +430,8 @@ func (s *Server) StopWait(name string) {
 	fmt.Println("File has been sent, closing connection!")
 }
 
-func (s *Server) sendAck() {
-	_, err := s.conn.WriteToUDP([]byte((&message.Acknowledgment{Seq:s.seq}).Marshal()), s.SWAddr)
+func (s *Server) sendAck(seq int) {
+	_, err := s.conn.WriteToUDP([]byte((&message.Acknowledgment{Seq:seq}).Marshal()), s.SWAddr)
 	if err != nil {
 		fmt.Println(err)
 	}
