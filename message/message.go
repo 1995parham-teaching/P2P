@@ -1,6 +1,7 @@
 package message
 
 import (
+	"encoding/base64"
 	"fmt"
 	"strconv"
 	"strings"
@@ -107,7 +108,7 @@ func (n *FileName) Marshal() string {
 }
 
 func (s *Segment) Marshal() string {
-	return fmt.Sprintf("%s,%d,%s\n", Buffer, s.Seq, s.Part)
+	return fmt.Sprintf("%s,%d,%s\n", Buffer, s.Seq, base64.StdEncoding.EncodeToString(s.Part))
 }
 
 func (a *Acknowledgment) Marshal() string {
@@ -151,9 +152,10 @@ func Unmarshal(s string) Message {
 		}
 	case Buffer:
 		seq,_ := strconv.Atoi(t[1])
+		part, _ := base64.StdEncoding.DecodeString(t[2])
 
 		return &Segment{
-			Part: []byte(t[2]),
+			Part: part,
 			Seq:  seq,
 		}
 	case Ack:

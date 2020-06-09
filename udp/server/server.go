@@ -175,7 +175,7 @@ func (s *Server) protocol(res message.Message, remoteAddr *net.UDPAddr, tcpPort 
 
 			s.fileName = t.Name
 
-			newFile, err := os.Create(filepath.Join(s.folder, filepath.Base(s.fileName+"getting")))
+			newFile, err := os.Create(filepath.Join(s.folder, filepath.Base("yep"+s.fileName)))
 			if err != nil {
 				fmt.Println(err)
 			}
