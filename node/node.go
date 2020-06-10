@@ -62,12 +62,12 @@ func New(folder string, c []string, approach int) Node {
 func (n *Node) Run() {
 	reader := bufio.NewReader(os.Stdin)
 
-	if n.approach == 1 {
+	//if n.approach == 1 {
 		go n.TCPServer.Up(n.TCPPort)
 
 		go n.TCPClient.Connect(n.Addr, n.fName)
 
-	}
+	//}
 
 	go n.UDPServer.Up(n.TCPPort, n.Addr, n.fName)
 

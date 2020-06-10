@@ -55,7 +55,7 @@ func New(ip string, port int, cluster *cluster.Cluster,
 
 func (s *Server) Up(tcpPort chan int, request chan string, fName chan string) {
 	tPort := <-tcpPort
-	addr := net.UDPAddr{
+	addr := net.UDPAddr {
 		IP:   net.ParseIP(s.IP),
 		Port: s.Port,
 	}
@@ -66,13 +66,12 @@ func (s *Server) Up(tcpPort chan int, request chan string, fName chan string) {
 	}
 
 	ser, err := net.ListenUDP("udp", &addr)
-
-	s.conn = ser
-
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+
+	s.conn = ser
 
 	m := make([]byte, 2048)
 
