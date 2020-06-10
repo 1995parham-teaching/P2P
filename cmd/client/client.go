@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/elahe-dstn/p2p/node"
@@ -43,7 +44,7 @@ func Register(root *cobra.Command) {
 				}
 
 				// Ask user to give its cluster members
-				print("Enter your cluster members list(enter q for quit)")
+				fmt.Println("Enter your cluster members list(enter q for quit)")
 
 				cluster := make([]string, 0)
 
@@ -64,7 +65,21 @@ func Register(root *cobra.Command) {
 					cluster = append(cluster, text)
 				}
 
-				n := node.New(folder, cluster)
+				fmt.Println("Choose the approach for transferring file\n" +
+					"1-TCP\n" +
+					"2-Stop and wait")
+
+				approach, err := reader.ReadString('\n')
+				if err != nil {
+					fmt.Println(err)
+				}
+
+				way, err := strconv.Atoi(approach)
+				if err != nil {
+					fmt.Println(err)
+				}
+
+				n := node.New(folder, cluster, way)
 				n.Run()
 			},
 		},

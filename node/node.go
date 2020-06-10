@@ -21,9 +21,10 @@ type Node struct {
 	TCPPort   chan int
 	Addr      chan string
 	fName     chan string
+	approach  int
 }
 
-func New(folder string, c []string) Node {
+func New(folder string, c []string, approach int) Node {
 	clu := cluster.New(c)
 
 	cfg := config.Read()
@@ -33,26 +34,44 @@ func New(folder string, c []string) Node {
 	d := cfg.DiscoveryPeriod
 	waitingDuration := cfg.WaitingTime
 
-	return Node{
-		UDPServer: udp.New(ip, port, &clu, time.NewTicker(time.Duration(d)*time.Second), waitingDuration, folder),
-		TCPServer: tcp.New(folder),
-		TCPClient: client.New(folder),
-		TCPPort:   make(chan int),
-		Addr:      make(chan string, 1),
-		fName:     make(chan string),
+	udpServer := udp.New(ip, port, &clu, time.NewTicker(time.Duration(d)*time.Second), waitingDuration, folder, approach)
+
+	if approach == 1 {
+		return Node {
+			UDPServer: udpServer,
+			TCPServer: tcp.New(folder),
+			TCPClient: client.New(folder),
+			TCPPort:   make(chan int),
+			Addr:      make(chan string, 1),
+			fName:     make(chan string),
+			approach:approach,
+		}
+	}else {
+		return Node {
+			UDPServer: udp.Server{},
+			TCPServer: tcp.Server{},
+			TCPClient: client.Client{},
+			TCPPort:   nil,
+			Addr:      nil,
+			fName:     nil,
+			approach:approach,
+		}
 	}
 }
 
 func (n *Node) Run() {
 	reader := bufio.NewReader(os.Stdin)
 
-	go n.TCPServer.Up(n.TCPPort)
+	if n.approach == 1 {
+		go n.TCPServer.Up(n.TCPPort)
+
+		go n.TCPClient.Connect(n.Addr, n.fName)
+
+	}
 
 	go n.UDPServer.Up(n.TCPPort, n.Addr, n.fName)
 
 	go n.UDPServer.Discover()
-
-	go n.TCPClient.Connect(n.Addr, n.fName)
 
 	for {
 		fmt.Println("Enter a file you want to download or list to see the cluster")
