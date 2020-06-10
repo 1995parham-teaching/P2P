@@ -2,6 +2,7 @@ package client
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"strings"
 
@@ -14,20 +15,32 @@ func Register(root *cobra.Command) {
 		&cobra.Command{
 			Use:   "node",
 			Short: "",
-			Long:  "",
 			Run: func(cmd *cobra.Command, args []string) {
 				reader := bufio.NewReader(os.Stdin)
 
-				print("Enter the folder you want to share")
+				folder := ""
 
-				folder, err := reader.ReadString('\n')
+				for {
+					fmt.Println("Enter the folder you want to share")
 
-				if err != nil {
-					print(err)
-					return
+					folder, err := reader.ReadString('\n')
+
+					if err != nil {
+						print(err)
+						return
+					}
+
+
+					folder = strings.TrimSuffix(folder, "\n")
+
+					// Check if the folder exists
+					_, err = os.Open(folder)
+					if err == nil {
+						break
+					}
+
+					fmt.Println("Couldn't find the folder")
 				}
-
-				folder = strings.TrimSuffix(folder, "\n")
 
 				// Ask user to give its cluster members
 				print("Enter your cluster members list(enter q for quit)")
