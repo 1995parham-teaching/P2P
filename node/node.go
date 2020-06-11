@@ -63,7 +63,7 @@ func (n *Node) Run() {
 
 	go n.reliableUDPServer.Up()
 
-	go n.reliableUDPClient.Connect(<-n.UAdder,<- n.UFName)
+	//go n.reliableUDPClient.Connect(n.UAdder, n.UFName)
 	fmt.Println("pass")
 
 	go n.UDPServer.Up(n.TCPPort, n.Addr, n.fName, n.UAdder, n.UFName)
