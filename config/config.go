@@ -13,6 +13,7 @@ type Config struct {
 	Port            int    `mapstructure:"port"`
 	DiscoveryPeriod int    `mapstructure:"period"`
 	WaitingTime     int    `mapstructure:"waiting"`
+	Type            int    `mapstructure:"type"`
 }
 
 func Read() Config {

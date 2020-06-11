@@ -46,6 +46,8 @@ github.com/elahe-dastan/reliable_UDP v0.0.0-20200611101545-cf8d7635fd90 h1:IOVIn
 github.com/elahe-dastan/reliable_UDP v0.0.0-20200611101545-cf8d7635fd90/go.mod h1:XoUhA1mzFWh9kg1mWA/3j8c7txANhqEe+oy4m6Q1vOo=
 github.com/elahe-dastan/reliable_UDP v0.0.0-20200611105445-494599f82f0a h1:5y5LxK+u1aw7xcb2Svkng04bcR1KfOJRjpOSmSrxMZ4=
 github.com/elahe-dastan/reliable_UDP v0.0.0-20200611105445-494599f82f0a/go.mod h1:XoUhA1mzFWh9kg1mWA/3j8c7txANhqEe+oy4m6Q1vOo=
+github.com/elahe-dastan/reliable_UDP v0.0.0-20200611144147-7dd5ae578c09 h1:kEATjtAOpnk9g5tHIjEqtHC08ZXJWnrOfX/IFxRzAxQ=
+github.com/elahe-dastan/reliable_UDP v0.0.0-20200611144147-7dd5ae578c09/go.mod h1:XoUhA1mzFWh9kg1mWA/3j8c7txANhqEe+oy4m6Q1vOo=
 github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
 github.com/fsnotify/fsnotify v1.4.7 h1:IXs+QLmnXW2CcXuY+8Mzv/fWEsPGWxqefPtCP5CnV9I=
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=

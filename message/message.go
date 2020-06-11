@@ -33,7 +33,9 @@ type Get struct {
 }
 
 type File struct {
+	Method int
 	TCPPort int
+	UDPPort int
 }
 
 type StopWait struct {
@@ -74,7 +76,13 @@ func (g *Get) Marshal() string {
 }
 
 func (f *File) Marshal() string {
-	return fmt.Sprintf("%s,%d\n", F, f.TCPPort)
+	// method 1 means TCP
+	if f.Method == 1 {
+		return fmt.Sprintf("%s,%d,%d\n", F, f.Method, f.TCPPort)
+	}else {
+		// reliable tcp
+		return fmt.Sprintf("%s,%d,%d\n", F, f.Method, f.UDPPort)
+	}
 }
 
 func (s *StopWait) Marshal() string {
@@ -103,8 +111,15 @@ func Unmarshal(s string) Message {
 	case G:
 		return &Get{Name: t[1]}
 	case F:
-		port, _ := strconv.Atoi(t[1])
-		return &File{TCPPort: port}
+		method, _ := strconv.Atoi(t[1])
+		port, _ := strconv.Atoi(t[2])
+
+		if method == 1 {
+			return &File{TCPPort: port}
+		}else {
+			return &File{UDPPort:port}
+		}
+
 	case SW:
 		return &StopWait{}
 	case Ask:

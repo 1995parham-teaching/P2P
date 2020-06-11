@@ -34,11 +34,11 @@ type Server struct {
 	fileName        string
 	fileSize        int64
 	newFile		   *os.File
-	approach		int
+	method          int
 }
 
 func New(ip string, port int, cluster *cluster.Cluster,
-	ticker *time.Ticker, waitingDuration int, folder string, approach int) Server {
+	ticker *time.Ticker, waitingDuration int, folder string, method int) Server {
 	return Server {
 		IP:              ip,
 		Port:            port,
@@ -48,11 +48,11 @@ func New(ip string, port int, cluster *cluster.Cluster,
 		folder:          folder,
 		prior:           make([]string, 0),
 		SWAck:           make(chan int),
-		approach:		 approach,
+		method:          method,
 	}
 }
 
-func (s *Server) Up(tcpPort chan int, request chan string, fName chan string) {
+func (s *Server) Up(tcpPort chan int, request chan string, fName chan string, uRequest chan string, uFName chan string) {
 	tPort := <-tcpPort
 	addr := net.UDPAddr {
 		IP:   net.ParseIP(s.IP),
@@ -89,11 +89,11 @@ func (s *Server) Up(tcpPort chan int, request chan string, fName chan string) {
 
 		res := message.Unmarshal(r)
 
-		s.protocol(res, remoteAddr, tPort, request, fName)
+		s.protocol(res, remoteAddr, tPort, request, fName, uRequest, uFName)
 	}
 }
 
-func (s *Server) protocol(res message.Message, remoteAddr *net.UDPAddr, tcpPort int, request chan string, fName chan string) {
+func (s *Server) protocol(res message.Message, remoteAddr *net.UDPAddr, tcpPort int, request chan string, fName chan string, uRequest chan string, uFName chan string) {
 	fmt.Println("protocol")
 
 	switch t := res.(type) {
@@ -102,11 +102,7 @@ func (s *Server) protocol(res message.Message, remoteAddr *net.UDPAddr, tcpPort 
 		s.Cluster.Merge(s.IP+":"+port, t.List)
 	case *message.Get:
 		if s.Search(t.Name) {
-			if s.approach == 1 {
-				go s.transfer(remoteAddr, (&message.File{TCPPort: tcpPort}).Marshal())
-			}else {
-				go s.transfer(remoteAddr, (&message.StopWait{}).Marshal())
-			}
+			go s.transfer(remoteAddr, (&message.File{Method:s.method, TCPPort: tcpPort}).Marshal())
 		}
 	case *message.File:
 		if s.waiting {
@@ -126,30 +122,14 @@ func (s *Server) protocol(res message.Message, remoteAddr *net.UDPAddr, tcpPort 
 
 			ip := remoteAddr.IP.String()
 			s.waiting = false
-			request <- fmt.Sprintf("%s:%d", ip, t.TCPPort)
-			fName <- s.Req
-		}
-	case *message.StopWait:
-		if s.waiting {
-			// Add to prior list
-			exists := false
 
-			for _, ip := range s.prior {
-				if ip == remoteAddr.String() {
-					exists = true
-					break
-				}
+			if t.Method == 1 {
+				request <- fmt.Sprintf("%s:%d", ip, t.TCPPort)
+				fName <- s.Req
+			}else {
+				uRequest <- fmt.Sprintf("%s:%d", ip, t.UDPPort)
+				uFName <- s.Req
 			}
-
-			if !exists {
-				s.prior = append(s.prior, remoteAddr.String())
-			}
-
-			s.SWAddr = remoteAddr
-			s.waiting = false
-
-			s.seq = 0
-			s.AskFile()
 		}
 	}
 
@@ -213,17 +193,4 @@ func (s *Server) Search(file string) bool {
 	}
 
 	return found
-}
-
-func (s *Server) AskFile() {
-	if s.approach == 1 {
-		_, err := s.conn.WriteToUDP([]byte((&message.AskFile{Name: s.Req}).Marshal()), s.SWAddr)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-	}else {
-
-		//s.reliableUDPClient.Connect()
-	}
 }
