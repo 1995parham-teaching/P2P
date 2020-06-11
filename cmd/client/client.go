@@ -19,11 +19,12 @@ func Register(root *cobra.Command) {
 				reader := bufio.NewReader(os.Stdin)
 
 				folder := ""
+				var err error
 
 				for {
 					fmt.Println("Enter the folder you want to share")
 
-					folder, err := reader.ReadString('\n')
+					folder, err = reader.ReadString('\n')
 
 					if err != nil {
 						print(err)

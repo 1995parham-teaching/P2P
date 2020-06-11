@@ -35,10 +35,11 @@ type Server struct {
 	fileSize        int64
 	newFile		   *os.File
 	method          int
+	UDPPort         int
 }
 
 func New(ip string, port int, cluster *cluster.Cluster,
-	ticker *time.Ticker, waitingDuration int, folder string, method int) Server {
+	ticker *time.Ticker, waitingDuration int, folder string, method int, UDPPort int) Server {
 	return Server {
 		IP:              ip,
 		Port:            port,
@@ -49,6 +50,7 @@ func New(ip string, port int, cluster *cluster.Cluster,
 		prior:           make([]string, 0),
 		SWAck:           make(chan int),
 		method:          method,
+		UDPPort:         UDPPort,
 	}
 }
 
@@ -102,7 +104,7 @@ func (s *Server) protocol(res message.Message, remoteAddr *net.UDPAddr, tcpPort 
 		s.Cluster.Merge(s.IP+":"+port, t.List)
 	case *message.Get:
 		if s.Search(t.Name) {
-			go s.transfer(remoteAddr, (&message.File{Method:s.method, TCPPort: tcpPort}).Marshal())
+			go s.transfer(remoteAddr, (&message.File{Method:s.method, TCPPort: tcpPort, UDPPort:s.UDPPort}).Marshal())
 		}
 	case *message.File:
 		if s.waiting {

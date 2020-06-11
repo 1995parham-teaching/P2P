@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,8 +40,11 @@ func New(folder string, c []string) Node {
 	d := cfg.DiscoveryPeriod
 	waitingDuration := cfg.WaitingTime
 	method := cfg.Type
+	reliableUDPServeAddr := cfg.ReliableUDPServer
 
-	udpServer := udp.New(ip, port, &clu, time.NewTicker(time.Duration(d)*time.Second), waitingDuration, folder, method)
+	UPort, _ := strconv.Atoi(strings.Split(reliableUDPServeAddr, ":")[1])
+
+	udpServer := udp.New(ip, port, &clu, time.NewTicker(time.Duration(d)*time.Second), waitingDuration, folder, method, UPort)
 
 	return Node {
 		UDPServer: udpServer,
@@ -49,6 +53,8 @@ func New(folder string, c []string) Node {
 		TCPPort:   make(chan int),
 		Addr:      make(chan string, 1),
 		fName:     make(chan string),
+		reliableUDPServer:reliableUDPServer.New(reliableUDPServeAddr, folder),
+		reliableUDPClient:reliableUDPClient.New(folder),
 		UAdder:    make(chan string),
 		UFName:	   make(chan string),
 	}
@@ -63,8 +69,7 @@ func (n *Node) Run() {
 
 	go n.reliableUDPServer.Up()
 
-	//go n.reliableUDPClient.Connect(n.UAdder, n.UFName)
-	fmt.Println("pass")
+	go n.reliableUDPClient.Connect(n.UAdder, n.UFName)
 
 	go n.UDPServer.Up(n.TCPPort, n.Addr, n.fName, n.UAdder, n.UFName)
 

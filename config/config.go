@@ -14,6 +14,7 @@ type Config struct {
 	DiscoveryPeriod int    `mapstructure:"period"`
 	WaitingTime     int    `mapstructure:"waiting"`
 	Type            int    `mapstructure:"type"`
+	ReliableUDPServer string `mapstructure:"addr"`
 }
 
 func Read() Config {
