@@ -10,9 +10,6 @@ import (
 	"net"
 	"strings"
 
-	"github.com/elahe-dastan/reliable_UDP/udp/client"
-	"github.com/elahe-dastan/reliable_UDP/udp/server"
-
 	"github.com/elahe-dstn/p2p/cluster"
 	"github.com/elahe-dstn/p2p/message"
 )
@@ -227,6 +224,6 @@ func (s *Server) AskFile() {
 		}
 	}else {
 
-		s.reliableUDPClient.Connect()
+		//s.reliableUDPClient.Connect()
 	}
 }

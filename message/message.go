@@ -111,14 +111,6 @@ func Unmarshal(s string) Message {
 		name := t[1]
 		return &AskFile{Name:name}
 
-	case Name:
-		seq,_ := strconv.Atoi(t[1])
-		name := t[2]
-
-		return &FileName{
-			Name: name,
-			Seq:  seq,
-		}
 	case Buffer:
 		seq,_ := strconv.Atoi(t[1])
 		part, _ := base64.StdEncoding.DecodeString(t[2])
