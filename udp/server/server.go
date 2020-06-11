@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -10,6 +9,9 @@ import (
 
 	"net"
 	"strings"
+
+	"github.com/elahe-dastan/reliable_UDP/udp/client"
+	"github.com/elahe-dastan/reliable_UDP/udp/server"
 
 	"github.com/elahe-dstn/p2p/cluster"
 	"github.com/elahe-dstn/p2p/message"
@@ -152,85 +154,6 @@ func (s *Server) protocol(res message.Message, remoteAddr *net.UDPAddr, tcpPort 
 			s.seq = 0
 			s.AskFile()
 		}
-
-	case *message.AskFile:
-		fmt.Println("the other asked for file")
-		s.SWAddr = remoteAddr
-		go s.StopWait(t.Name)
-
-	case *message.Size:
-		fmt.Println("recieved size the seq is")
-		fmt.Println(t.Seq)
-		if t.Seq == s.seq {
-			s.seq += 1
-			s.seq %= 2
-
-			s.fileSize = t.Size
-		}
-
-		go s.sendAck(t.Seq)
-
-	case *message.FileName:
-		fmt.Println("recieved file name the seq is")
-		fmt.Println(t.Seq)
-		if t.Seq == s.seq {
-			s.seq += 1
-			s.seq %= 2
-
-			s.fileName = t.Name
-
-			newFile, err := os.Create(filepath.Join(s.folder, filepath.Base("yep"+s.fileName)))
-			if err != nil {
-				fmt.Println(err)
-			}
-
-			s.newFile = newFile
-		}
-
-		go s.sendAck(t.Seq)
-
-	case *message.Segment:
-		fmt.Println("recieved segment the seq is")
-		fmt.Println(t.Seq)
-		if t.Seq == s.seq {
-			s.seq += 1
-			s.seq %= 2
-
-			segment := t.Part
-
-			//var receivedBytes int64
-
-			//for {
-			//if (s.fileSize - receivedBytes) < BUFFERSIZE {
-			//	s.newFile.Write(), connection, fileSize-receivedBytes)
-			//	if err != nil {
-			//		fmt.Println(err)
-			//	}
-			//
-			//	_, err = connection.Read(make([]byte, (receivedBytes+BUFFER)-fileSize))
-			//	if err != nil {
-			//		fmt.Println(err)
-			//	}
-			//
-			//	break
-			//}
-
-			_, err := s.newFile.Write(segment)
-			if err != nil {
-				fmt.Println(err)
-			}
-
-			//receivedBytes += BUFFER
-			//}
-
-		}
-
-		go s.sendAck(t.Seq)
-
-	case *message.Acknowledgment:
-		s.SWAck <- t.Seq
-		fmt.Println("Recieved ack and the seq is")
-		fmt.Println(t.Seq)
 	}
 
 }
@@ -296,148 +219,14 @@ func (s *Server) Search(file string) bool {
 }
 
 func (s *Server) AskFile() {
-	_, err := s.conn.WriteToUDP([]byte((&message.AskFile{Name: s.Req}).Marshal()), s.SWAddr)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-}
-
-func (s *Server) StopWait(name string) {
-	fmt.Println("A stop and wait client has connected!")
-
-	file, err := os.Open(s.folder + "/" + name)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	fileInfo, err := file.Stat()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	fmt.Println("Sending filename and filesize!")
-
-	seq := 0
-
-	fileSize := (&message.Size{Size: fileInfo.Size(), Seq: seq}).Marshal()
-
-	_, err = s.conn.WriteToUDP([]byte(fileSize), s.SWAddr)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	for {
-		ticker := time.NewTicker(6 * time.Second)
-		b := false
-
-		select {
-		case <-ticker.C:
-			_, err = s.conn.WriteToUDP([]byte(fileSize), s.SWAddr)
-			if err != nil {
-				fmt.Println(err)
-			}
-		case ack := <-s.SWAck:
-			if ack == seq {
-				seq += 1
-				seq %= 2
-				b = true
-				break
-			}
-		}
-
-		if b {
-			break
-		}
-	}
-
-	fileName := (&message.FileName{Name: fileInfo.Name(), Seq: seq}).Marshal()
-
-	_, err = s.conn.WriteToUDP([]byte(fileName), s.SWAddr)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	for {
-		ticker := time.NewTicker(6 * time.Second)
-		b := false
-
-		select {
-		case <-ticker.C:
-			_, err = s.conn.WriteToUDP([]byte(fileName), s.SWAddr)
-			if err != nil {
-				fmt.Println(err)
-			}
-		case ack := <-s.SWAck:
-			if ack == seq {
-				seq += 1
-				seq %= 2
-				b = true
-				break
-			}
-		}
-
-		if b {
-			break
-		}
-	}
-
-	sendBuffer := make([]byte, BUFFERSIZE-9)
-
-	fmt.Println("Start sending file")
-
-	for {
-		read, err := file.Read(sendBuffer)
-		if err == io.EOF {
-			break
-		}
-
-		sendBuff := sendBuffer[0:read]
-		buffer := (&message.Segment{
-			Part: sendBuff,
-			Seq:  seq,
-		}).Marshal()
-
-		send := []byte(buffer)
-
-		_, err = s.conn.WriteToUDP(send, s.SWAddr)
+	if s.approach == 1 {
+		_, err := s.conn.WriteToUDP([]byte((&message.AskFile{Name: s.Req}).Marshal()), s.SWAddr)
 		if err != nil {
 			fmt.Println(err)
+			return
 		}
+	}else {
 
-		for {
-			ticker := time.NewTicker(6 * time.Second)
-			b := false
-
-			select {
-			case <-ticker.C:
-				_, err = s.conn.WriteToUDP(send, s.SWAddr)
-				if err != nil {
-					fmt.Println(err)
-				}
-			case ack := <-s.SWAck:
-				if ack == seq {
-					seq += 1
-					seq %= 2
-					b = true
-					break
-				}
-			}
-
-			if b {
-				break
-			}
-		}
-	}
-
-	fmt.Println("File has been sent, closing connection!")
-}
-
-func (s *Server) sendAck(seq int) {
-	_, err := s.conn.WriteToUDP([]byte((&message.Acknowledgment{Seq:seq}).Marshal()), s.SWAddr)
-	if err != nil {
-		fmt.Println(err)
+		s.reliableUDPClient.Connect()
 	}
 }

@@ -85,28 +85,6 @@ func (a *AskFile) Marshal() string {
 	return fmt.Sprintf("%s,%s\n", Ask, a.Name)
 }
 
-func (s *Size) Marshal() string {
-	fileSize := FileSize + ","
-	fileSize += strconv.Itoa(s.Seq)
-	fileSize += ","
-	fileSize += strconv.FormatInt(s.Size, 10)
-	fileSize += "\n"
-	//fileSize = fillString(fileSize, 10)
-
-	return fileSize
-}
-
-func (n *FileName) Marshal() string {
-	fileName := Name + ","
-	fileName += strconv.Itoa(n.Seq)
-	fileName += ","
-	fileName += n.Name
-	fileName += "\n"
-	//fileName = fillString(fileName, 64)
-
-	return fileName
-}
-
 func (s *Segment) Marshal() string {
 	return fmt.Sprintf("%s,%d,%s\n", Buffer, s.Seq, base64.StdEncoding.EncodeToString(s.Part))
 }
@@ -132,15 +110,6 @@ func Unmarshal(s string) Message {
 	case Ask:
 		name := t[1]
 		return &AskFile{Name:name}
-	case FileSize:
-		seq,_ := strconv.Atoi(t[1])
-		size,_ := strconv.Atoi(t[2])
-		size64 := int64(size)
-
-		return &Size{
-			Size: size64,
-			Seq:  seq,
-		}
 
 	case Name:
 		seq,_ := strconv.Atoi(t[1])
@@ -158,25 +127,7 @@ func Unmarshal(s string) Message {
 			Part: part,
 			Seq:  seq,
 		}
-	case Ack:
-		seq,_ := strconv.Atoi(t[1])
-
-		return &Acknowledgment{Seq:seq}
 	}
 
 	return nil
-}
-
-func fillString(retunString string, toLength int) string {
-	for {
-		lengtString := len(retunString)
-		if lengtString < toLength {
-			retunString += ":"
-			continue
-		}
-
-		break
-	}
-
-	return retunString
 }

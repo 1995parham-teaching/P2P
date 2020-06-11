@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	reliableUDPClient "github.com/elahe-dastan/reliable_UDP/udp/client"
+	reliableUDPServer "github.com/elahe-dastan/reliable_UDP/udp/server"
 	"github.com/elahe-dstn/p2p/cluster"
 	"github.com/elahe-dstn/p2p/config"
 	"github.com/elahe-dstn/p2p/tcp/client"
@@ -22,6 +24,8 @@ type Node struct {
 	Addr      chan string
 	fName     chan string
 	approach  int
+	reliableUDPServer reliableUDPServer.Server
+	reliableUDPClient reliableUDPClient.Client
 }
 
 func New(folder string, c []string, approach int) Node {
@@ -55,6 +59,8 @@ func New(folder string, c []string, approach int) Node {
 			Addr:      nil,
 			fName:     nil,
 			approach:approach,
+			reliableUDPServer:reliableUDPServer.New("127.0.0.1", 1995, folder),
+			reliableUDPClient:reliableUDPClient.New(folder),
 		}
 	}
 }
@@ -67,6 +73,9 @@ func (n *Node) Run() {
 
 		go n.TCPClient.Connect(n.Addr, n.fName)
 
+		go n.reliableUDPServer.Up()
+
+		go n.reliableUDPClient.Connect()
 	//}
 
 	go n.UDPServer.Up(n.TCPPort, n.Addr, n.fName)
