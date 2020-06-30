@@ -131,6 +131,7 @@ func (s *Server) protocol(res message.Message, remoteAddr *net.UDPAddr, tcpPort 
 			}else {
 				uRequest <- fmt.Sprintf("%s:%d", ip, t.UDPPort)
 				uFName <- s.Req
+
 			}
 		}
 	}

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/elahe-dastan/reliable_UDP/request"
 	reliableUDPClient "github.com/elahe-dastan/reliable_UDP/udp/client"
 	reliableUDPServer "github.com/elahe-dastan/reliable_UDP/udp/server"
 	"github.com/elahe-dstn/p2p/cluster"
@@ -69,7 +70,9 @@ func (n *Node) Run() {
 
 	go n.reliableUDPServer.Up()
 
-	go n.reliableUDPClient.Connect(n.UAdder, n.UFName)
+	go n.reliableUDPClient.Connect(n.UAdder)
+
+	go n.reliableUDPClient.Send([]byte((&request.Get{Name: <-n.UFName}).Marshal()))
 
 	go n.UDPServer.Up(n.TCPPort, n.Addr, n.fName, n.UAdder, n.UFName)
 
