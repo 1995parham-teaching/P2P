@@ -3,7 +3,7 @@ module github.com/elahe-dstn/p2p
 go 1.13
 
 require (
-	github.com/elahe-dastan/reliable_UDP v0.0.0-20200630111729-974b9e74bddb
+	github.com/elahe-dastan/reliable_UDP v0.0.0-20200630170625-0f92fd6357b5
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/mitchellh/mapstructure v1.3.2 // indirect
 	github.com/pelletier/go-toml v1.8.0 // indirect

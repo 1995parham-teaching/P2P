@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/elahe-dastan/reliable_UDP/message"
 )
 
 const (
@@ -48,17 +50,14 @@ type AskFile struct {
 
 type Size struct {
 	Size int64
-	Seq  int
 }
 
 type FileName struct{
 	Name string
-	Seq int
 }
 
 type Segment struct {
 	Part []byte
-	Seq int
 }
 
 type Acknowledgment struct {
@@ -93,12 +92,25 @@ func (a *AskFile) Marshal() string {
 	return fmt.Sprintf("%s,%s\n", Ask, a.Name)
 }
 
-func (s *Segment) Marshal() string {
-	return fmt.Sprintf("%s,%d,%s\n", Buffer, s.Seq, base64.StdEncoding.EncodeToString(s.Part))
-}
-
 func (a *Acknowledgment) Marshal() string {
 	return fmt.Sprintf("%s,%d\n", Ack, a.Seq)
+}
+
+func (s *Size) Marshal() string {
+	fileSize := message.Size + "," +
+		strconv.FormatInt(s.Size, 10) + "\n"
+
+	return fileSize
+}
+
+func (n *FileName) Marshal() string {
+	fileName := message.FileName + "," + n.Name + "\n"
+
+	return fileName
+}
+
+func (s *Segment) Marshal() string {
+	return fmt.Sprintf("%s,%s\n", message.Segment, base64.StdEncoding.EncodeToString(s.Part))
 }
 
 func Unmarshal(s string) Message {
@@ -127,13 +139,43 @@ func Unmarshal(s string) Message {
 		return &AskFile{Name:name}
 
 	case Buffer:
-		seq,_ := strconv.Atoi(t[1])
 		part, _ := base64.StdEncoding.DecodeString(t[2])
 
 		return &Segment{
 			Part: part,
-			Seq:  seq,
 		}
+	}
+
+	return nil
+}
+
+
+func ReliableUDPUnmarshal(s string) Message {
+	s = strings.Split(s, "\n")[0]
+	t := strings.Split(s, ",")
+
+	switch t[0] {
+	case message.Size:
+		size, _ := strconv.Atoi(t[1])
+		size64 := int64(size)
+
+		return &Size{
+			Size: size64,
+		}
+	case message.FileName:
+		name := t[1]
+
+		return &FileName{
+			Name: name,
+		}
+	case message.Segment:
+		part, _ := base64.StdEncoding.DecodeString(t[1])
+
+		return &Segment{
+			Part: part,
+		}
+	case G:
+		return &Get{Name: t[1]}
 	}
 
 	return nil
