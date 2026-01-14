@@ -147,35 +147,57 @@ addr: "127.0.0.1:1999" # Reliable UDP server address
 
 ## Project Structure
 
+This project follows the [golang-standards/project-layout](https://github.com/golang-standards/project-layout):
+
 ```
 P2P/
-├── main.go                 # Entry point
 ├── cmd/
-│   ├── root.go             # CLI setup (Cobra)
-│   └── client/client.go    # Node command handler
-├── node/node.go            # Main orchestration
-├── config/
-│   ├── config.go           # Configuration loading (Viper)
-│   ├── constants.go        # Shared constants
-│   └── default.go          # Default config values
-├── cluster/cluster.go      # Thread-safe peer list management
-├── message/message.go      # Protocol message types and parsing
-├── internal/utils/utils.go # Helper functions
-├── tcp/
-│   ├── server/server.go    # TCP file server
-│   └── client/client.go    # TCP file client
-└── udp/
-    └── server/server.go    # UDP discovery and coordination
+│   └── p2p/
+│       └── main.go              # Application entry point
+├── configs/
+│   └── config.example.yml       # Example configuration file
+├── internal/                    # Private application code
+│   ├── cluster/
+│   │   └── cluster.go           # Thread-safe peer list management
+│   ├── config/
+│   │   ├── config.go            # Configuration loading (Viper)
+│   │   ├── constants.go         # Shared constants
+│   │   └── default.go           # Default config values
+│   ├── message/
+│   │   └── message.go           # Protocol message types and parsing
+│   ├── node/
+│   │   └── node.go              # Main node orchestration
+│   ├── tcp/
+│   │   ├── client/
+│   │   │   └── client.go        # TCP file download client
+│   │   └── server/
+│   │       └── server.go        # TCP file server
+│   ├── udp/
+│   │   └── server/
+│   │       └── server.go        # UDP discovery and coordination
+│   └── utils/
+│       └── utils.go             # Helper functions
+├── go.mod
+├── go.sum
+└── README.md
 ```
+
+### Directory Descriptions
+
+- **`/cmd`**: Main applications for this project. The directory name for each application should match the name of the executable (e.g., `/cmd/p2p`).
+
+- **`/internal`**: Private application and library code. This is the code you don't want others importing in their applications. Note that this layout pattern is enforced by the Go compiler.
+
+- **`/configs`**: Configuration file templates or default configs. Put your `config.yml` here or in the project root.
 
 ## Running a Node
 
 ```bash
 # Build
-go build -o p2p
+go build -o p2p ./cmd/p2p
 
 # Run
-./p2p node
+./p2p
 ```
 
 The node will prompt for:
@@ -198,7 +220,7 @@ Once running, enter commands at the prompt:
 **Terminal 1 (Node A on port 1378):**
 
 ```
-$ ./p2p node
+$ ./p2p
 Enter the folder you want to share:
 /home/user/shared
 Enter your cluster members list (one per line, enter 'q' to finish):
@@ -215,7 +237,7 @@ Received file completely!
 **Terminal 2 (Node B on port 1379):**
 
 ```
-$ ./p2p node
+$ ./p2p
 Enter the folder you want to share:
 /home/user/documents
 Enter your cluster members list (one per line, enter 'q' to finish):
