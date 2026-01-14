@@ -10,10 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/1995parham-teaching/P2P/cluster"
-	"github.com/1995parham-teaching/P2P/config"
-	"github.com/1995parham-teaching/P2P/internal/utils"
-	"github.com/1995parham-teaching/P2P/message"
+	"github.com/1995parham-teaching/P2P/internal/cluster"
+	"github.com/1995parham-teaching/P2P/internal/config"
+	"github.com/1995parham-teaching/P2P/internal/message"
 )
 
 type Server struct {
@@ -272,7 +271,7 @@ func (s *Server) addToPrior(addr string) {
 	s.priorMutex.Lock()
 	defer s.priorMutex.Unlock()
 
-	if !utils.Contains(s.prior, addr) {
+	if !contains(s.prior, addr) {
 		s.prior = append(s.prior, addr)
 	}
 }
@@ -281,7 +280,7 @@ func (s *Server) isPrior(addr string) bool {
 	s.priorMutex.RLock()
 	defer s.priorMutex.RUnlock()
 
-	return utils.Contains(s.prior, addr)
+	return contains(s.prior, addr)
 }
 
 // Close shuts down the UDP server
@@ -291,4 +290,14 @@ func (s *Server) Close() error {
 		return s.conn.Close()
 	}
 	return nil
+}
+
+// contains checks if a string slice contains a specific item
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
 }

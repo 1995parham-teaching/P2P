@@ -1,4 +1,4 @@
-package client
+package main
 
 import (
 	"bufio"
@@ -6,42 +6,34 @@ import (
 	"os"
 	"strings"
 
-	"github.com/1995parham-teaching/P2P/node"
-	"github.com/spf13/cobra"
+	"github.com/1995parham-teaching/P2P/internal/node"
 )
 
-func Register(root *cobra.Command) {
-	root.AddCommand(
-		&cobra.Command{
-			Use:   "node",
-			Short: "Start a P2P node for file sharing",
-			Run: func(cmd *cobra.Command, args []string) {
-				reader := bufio.NewReader(os.Stdin)
+func main() {
+	reader := bufio.NewReader(os.Stdin)
 
-				folder, err := getFolder(reader)
-				if err != nil {
-					fmt.Printf("Error getting folder: %v\n", err)
-					return
-				}
+	folder, err := getFolder(reader)
+	if err != nil {
+		fmt.Printf("Error getting folder: %v\n", err)
+		os.Exit(1)
+	}
 
-				clusterList, err := getClusterMembers(reader)
-				if err != nil {
-					fmt.Printf("Error getting cluster members: %v\n", err)
-					return
-				}
+	clusterList, err := getClusterMembers(reader)
+	if err != nil {
+		fmt.Printf("Error getting cluster members: %v\n", err)
+		os.Exit(1)
+	}
 
-				n, err := node.New(folder, clusterList)
-				if err != nil {
-					fmt.Printf("Failed to create node: %v\n", err)
-					return
-				}
+	n, err := node.New(folder, clusterList)
+	if err != nil {
+		fmt.Printf("Failed to create node: %v\n", err)
+		os.Exit(1)
+	}
 
-				if err := n.Run(); err != nil {
-					fmt.Printf("Node error: %v\n", err)
-				}
-			},
-		},
-	)
+	if err := n.Run(); err != nil {
+		fmt.Printf("Node error: %v\n", err)
+		os.Exit(1)
+	}
 }
 
 func getFolder(reader *bufio.Reader) (string, error) {
@@ -55,7 +47,6 @@ func getFolder(reader *bufio.Reader) (string, error) {
 
 		folder = strings.TrimSpace(folder)
 
-		// Check if the folder exists
 		info, err := os.Stat(folder)
 		if err != nil {
 			fmt.Println("Couldn't find the folder, please try again")
@@ -92,7 +83,6 @@ func getClusterMembers(reader *bufio.Reader) ([]string, error) {
 			continue
 		}
 
-		// Basic validation of address format
 		if !strings.Contains(text, ":") {
 			fmt.Println("Invalid address format. Use IP:Port (e.g., 127.0.0.1:1378)")
 			continue

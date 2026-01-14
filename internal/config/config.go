@@ -9,16 +9,17 @@ import (
 )
 
 type Config struct {
-	Host            string `mapstructure:"host"`
-	Port            int    `mapstructure:"port"`
-	DiscoveryPeriod int    `mapstructure:"period"`
-	WaitingTime     int    `mapstructure:"waiting"`
-	Type            int    `mapstructure:"type"`
+	Host              string `mapstructure:"host"`
+	Port              int    `mapstructure:"port"`
+	DiscoveryPeriod   int    `mapstructure:"period"`
+	WaitingTime       int    `mapstructure:"waiting"`
+	Type              int    `mapstructure:"type"`
 	ReliableUDPServer string `mapstructure:"addr"`
 }
 
 func Read() Config {
 	viper.AddConfigPath(".")
+	viper.AddConfigPath("./configs")
 	viper.SetConfigType("yml")
 
 	if err := viper.ReadConfig(bytes.NewBufferString(Default)); err != nil {

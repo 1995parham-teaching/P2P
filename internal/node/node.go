@@ -16,13 +16,13 @@ import (
 	"github.com/elahe-dastan/reliable_UDP/response"
 	reliableUDPClient "github.com/elahe-dastan/reliable_UDP/udp/client"
 	reliableUDPServer "github.com/elahe-dastan/reliable_UDP/udp/server"
-	"github.com/1995parham-teaching/P2P/cluster"
-	"github.com/1995parham-teaching/P2P/config"
-	"github.com/1995parham-teaching/P2P/internal/utils"
-	"github.com/1995parham-teaching/P2P/message"
-	"github.com/1995parham-teaching/P2P/tcp/client"
-	tcp "github.com/1995parham-teaching/P2P/tcp/server"
-	udp "github.com/1995parham-teaching/P2P/udp/server"
+
+	"github.com/1995parham-teaching/P2P/internal/cluster"
+	"github.com/1995parham-teaching/P2P/internal/config"
+	"github.com/1995parham-teaching/P2P/internal/message"
+	"github.com/1995parham-teaching/P2P/internal/tcp/client"
+	tcp "github.com/1995parham-teaching/P2P/internal/tcp/server"
+	udp "github.com/1995parham-teaching/P2P/internal/udp/server"
 )
 
 type Node struct {
@@ -264,7 +264,7 @@ func (n *Node) handleReliableUDPSend() {
 
 func (n *Node) sendFileViaReliableUDP(fileName string) error {
 	// Use safe path to prevent directory traversal
-	filePath := utils.SafePath(n.folder, fileName)
+	filePath := safePath(n.folder, fileName)
 
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -433,4 +433,10 @@ func (n *Node) Shutdown() {
 	// Wait for goroutines to finish
 	n.wg.Wait()
 	fmt.Println("Shutdown complete")
+}
+
+// safePath ensures the file path is within the allowed folder
+func safePath(folder, filename string) string {
+	safeName := filepath.Base(filename)
+	return filepath.Join(folder, safeName)
 }

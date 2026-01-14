@@ -8,10 +8,10 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
-	"github.com/1995parham-teaching/P2P/config"
-	"github.com/1995parham-teaching/P2P/internal/utils"
-	"github.com/1995parham-teaching/P2P/message"
+	"github.com/1995parham-teaching/P2P/internal/config"
+	"github.com/1995parham-teaching/P2P/internal/message"
 )
 
 type Client struct {
@@ -55,7 +55,7 @@ func (c *Client) downloadFile(serverAddr, fileName string) error {
 		return fmt.Errorf("failed to read file size: %w", err)
 	}
 
-	fileSize, err := strconv.ParseInt(utils.TrimPadding(string(bufferFileSize), ":"), 10, 64)
+	fileSize, err := strconv.ParseInt(strings.TrimRight(string(bufferFileSize), ":"), 10, 64)
 	if err != nil {
 		return fmt.Errorf("invalid file size: %w", err)
 	}
@@ -66,7 +66,7 @@ func (c *Client) downloadFile(serverAddr, fileName string) error {
 		return fmt.Errorf("failed to read file name: %w", err)
 	}
 
-	receivedFileName := utils.TrimPadding(string(bufferFileName), ":")
+	receivedFileName := strings.TrimRight(string(bufferFileName), ":")
 
 	// Create output file with "downloading_" prefix to indicate in-progress download
 	outputPath := filepath.Join(c.folder, "downloading_"+filepath.Base(receivedFileName))

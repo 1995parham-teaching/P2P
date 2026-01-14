@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/elahe-dastan/reliable_UDP/message"
-	"github.com/1995parham-teaching/P2P/config"
+	reliableMsg "github.com/elahe-dastan/reliable_UDP/message"
+	"github.com/1995parham-teaching/P2P/internal/config"
 )
 
 var (
@@ -89,15 +89,15 @@ func (a *Acknowledgment) Marshal() string {
 }
 
 func (s *Size) Marshal() string {
-	return fmt.Sprintf("%s,%d\n", message.Size, s.Size)
+	return fmt.Sprintf("%s,%d\n", reliableMsg.Size, s.Size)
 }
 
 func (n *FileName) Marshal() string {
-	return fmt.Sprintf("%s,%s\n", message.FileName, n.Name)
+	return fmt.Sprintf("%s,%s\n", reliableMsg.FileName, n.Name)
 }
 
 func (s *Segment) Marshal() string {
-	return fmt.Sprintf("%s,%s\n", message.Segment, base64.StdEncoding.EncodeToString(s.Part))
+	return fmt.Sprintf("%s,%s\n", reliableMsg.Segment, base64.StdEncoding.EncodeToString(s.Part))
 }
 
 // Unmarshal parses a message string into a Message type
@@ -187,7 +187,7 @@ func ReliableUDPUnmarshal(s string) (Message, error) {
 	}
 
 	switch parts[0] {
-	case message.Size:
+	case reliableMsg.Size:
 		if len(parts) < 2 {
 			return nil, fmt.Errorf("%w: Size message requires size value", ErrMalformedMessage)
 		}
@@ -197,13 +197,13 @@ func ReliableUDPUnmarshal(s string) (Message, error) {
 		}
 		return &Size{Size: size}, nil
 
-	case message.FileName:
+	case reliableMsg.FileName:
 		if len(parts) < 2 {
 			return nil, fmt.Errorf("%w: FileName message requires name", ErrMalformedMessage)
 		}
 		return &FileName{Name: parts[1]}, nil
 
-	case message.Segment:
+	case reliableMsg.Segment:
 		if len(parts) < 2 {
 			return nil, fmt.Errorf("%w: Segment message requires data", ErrMalformedMessage)
 		}

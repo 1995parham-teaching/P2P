@@ -6,8 +6,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-
-	"github.com/1995parham-teaching/P2P/internal/utils"
 )
 
 type Cluster struct {
@@ -80,7 +78,7 @@ func (c *Cluster) Merge(host string, newList []string) {
 			continue
 		}
 
-		if !utils.Contains(c.list, ip) {
+		if !contains(c.list, ip) {
 			c.list = append(c.list, ip)
 		}
 	}
@@ -91,7 +89,7 @@ func (c *Cluster) Add(addr string) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	if addr != "" && !utils.Contains(c.list, addr) {
+	if addr != "" && !contains(c.list, addr) {
 		c.list = append(c.list, addr)
 	}
 }
@@ -114,4 +112,14 @@ func (c *Cluster) Size() int {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 	return len(c.list)
+}
+
+// contains checks if a string slice contains a specific item
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
 }

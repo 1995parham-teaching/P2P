@@ -4,14 +4,12 @@ go 1.25
 
 require (
 	github.com/elahe-dastan/reliable_UDP v0.0.0-20200630170625-0f92fd6357b5
-	github.com/spf13/cobra v1.0.0
 	github.com/spf13/viper v1.7.0
 )
 
 require (
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
-	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/magiconair/properties v1.8.1 // indirect
 	github.com/mitchellh/mapstructure v1.3.2 // indirect
 	github.com/pelletier/go-toml v1.8.0 // indirect

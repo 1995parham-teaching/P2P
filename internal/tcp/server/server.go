@@ -6,11 +6,12 @@ import (
 	"io"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 
-	"github.com/1995parham-teaching/P2P/config"
-	"github.com/1995parham-teaching/P2P/internal/utils"
-	"github.com/1995parham-teaching/P2P/message"
+	"github.com/1995parham-teaching/P2P/internal/config"
+	"github.com/1995parham-teaching/P2P/internal/message"
 )
 
 type Server struct {
@@ -96,7 +97,7 @@ func (s *Server) send(conn io.Writer, name string) error {
 	fmt.Println("A client has connected!")
 
 	// Use safe path to prevent directory traversal attacks
-	filePath := utils.SafePath(s.folder, name)
+	filePath := safePath(s.folder, name)
 
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -109,8 +110,8 @@ func (s *Server) send(conn io.Writer, name string) error {
 		return fmt.Errorf("failed to stat file: %w", err)
 	}
 
-	fileSize := utils.FillString(strconv.FormatInt(fileInfo.Size(), 10), config.FileSizeLength, ':')
-	fileName := utils.FillString(fileInfo.Name(), config.FileNameLength, ':')
+	fileSize := fillString(strconv.FormatInt(fileInfo.Size(), 10), config.FileSizeLength, ':')
+	fileName := fillString(fileInfo.Name(), config.FileNameLength, ':')
 
 	fmt.Println("Sending filename and filesize!")
 
@@ -150,4 +151,18 @@ func (s *Server) Close() error {
 		return s.listener.Close()
 	}
 	return nil
+}
+
+// safePath ensures the file path is within the allowed folder
+func safePath(folder, filename string) string {
+	safeName := filepath.Base(filename)
+	return filepath.Join(folder, safeName)
+}
+
+// fillString pads a string to the specified length
+func fillString(s string, length int, padding byte) string {
+	if len(s) >= length {
+		return s[:length]
+	}
+	return s + strings.Repeat(string(padding), length-len(s))
 }

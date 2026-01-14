@@ -1,0 +1,20 @@
+# P2P Node Configuration
+# Copy this file to config.yml and adjust values as needed
+
+# Node's IP address
+host: 127.0.0.1
+
+# UDP port for discovery messages
+port: 1378
+
+# Discovery broadcast interval in seconds
+period: 20
+
+# File request timeout in seconds
+waiting: 100
+
+# Transfer method: 1 = TCP, 2 = Reliable UDP
+type: 1
+
+# Reliable UDP server address (only used when type = 2)
+addr: 127.0.0.1:1999
