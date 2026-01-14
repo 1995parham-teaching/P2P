@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/elahe-dstn/p2p/cmd/client"
+	"github.com/1995parham-teaching/P2P/cmd/client"
 	"github.com/spf13/cobra"
 )
 

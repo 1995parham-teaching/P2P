@@ -1,199 +1,294 @@
 package server
 
 import (
+	"context"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
-	"strconv"
+	"strings"
+	"sync"
 	"time"
 
-	"net"
-	"strings"
-
-	"github.com/elahe-dstn/p2p/cluster"
-	"github.com/elahe-dstn/p2p/message"
+	"github.com/1995parham-teaching/P2P/cluster"
+	"github.com/1995parham-teaching/P2P/config"
+	"github.com/1995parham-teaching/P2P/internal/utils"
+	"github.com/1995parham-teaching/P2P/message"
 )
-
-const BUFFERSIZE = 1024
 
 type Server struct {
 	IP              string
 	Port            int
 	Cluster         *cluster.Cluster
 	DiscoveryTicker *time.Ticker
-	waiting         bool
-	WaitingDuration int
-	waitingTicker   *time.Ticker
+	waitingDuration time.Duration
 	Req             string
 	folder          string
 	conn            *net.UDPConn
-	prior           []string
-	SWAddr          *net.UDPAddr
-	SWAck           chan int
-	seq             int
-	fileName        string
-	fileSize        int64
-	newFile		   *os.File
 	method          int
 	UDPPort         int
+
+	// File request state
+	waiting       bool
+	waitingMutex  sync.Mutex
+	waitingCancel context.CancelFunc
+
+	// Priority responders tracking
+	prior      []string
+	priorMutex sync.RWMutex
+
+	// File index cache
+	fileIndex      map[string]string // filename -> full path
+	fileIndexMutex sync.RWMutex
 }
 
 func New(ip string, port int, cluster *cluster.Cluster,
-	ticker *time.Ticker, waitingDuration int, folder string, method int, UDPPort int) Server {
-	return Server {
+	ticker *time.Ticker, waitingDuration int, folder string, method int, udpPort int) *Server {
+	s := &Server{
 		IP:              ip,
 		Port:            port,
 		Cluster:         cluster,
 		DiscoveryTicker: ticker,
-		WaitingDuration: waitingDuration,
+		waitingDuration: time.Duration(waitingDuration) * time.Second,
 		folder:          folder,
 		prior:           make([]string, 0),
-		SWAck:           make(chan int),
 		method:          method,
-		UDPPort:         UDPPort,
+		UDPPort:         udpPort,
+		fileIndex:       make(map[string]string),
 	}
+
+	// Build initial file index
+	s.rebuildFileIndex()
+
+	return s
 }
 
-func (s *Server) Up(tcpPort chan int, request chan string, fName chan string, uRequest chan string, uFName chan string) {
+// Up starts the UDP server and listens for incoming messages
+func (s *Server) Up(ctx context.Context, tcpPort <-chan int, request chan<- string, fName chan<- string, uRequest chan<- string, uFName chan<- string) error {
 	tPort := <-tcpPort
-	addr := net.UDPAddr {
+
+	addr := net.UDPAddr{
 		IP:   net.ParseIP(s.IP),
 		Port: s.Port,
 	}
 
-	_, err := net.ResolveUDPAddr("udp", addr.String())
+	conn, err := net.ListenUDP("udp", &addr)
 	if err != nil {
-		fmt.Println(err)
+		return fmt.Errorf("failed to start UDP server: %w", err)
 	}
+	s.conn = conn
 
-	ser, err := net.ListenUDP("udp", &addr)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	// Handle graceful shutdown
+	go func() {
+		<-ctx.Done()
+		conn.Close()
+	}()
 
-	s.conn = ser
-
-	m := make([]byte, 2048)
+	buffer := make([]byte, config.UDPBufferSize)
 
 	for {
-		_, remoteAddr, err := ser.ReadFromUDP(m)
+		n, remoteAddr, err := conn.ReadFromUDP(buffer)
 		if err != nil {
-			fmt.Println(err)
-			return
+			select {
+			case <-ctx.Done():
+				return nil
+			default:
+				fmt.Printf("UDP read error: %v\n", err)
+				continue
+			}
 		}
 
-		r := strings.Split(string(m), "\n")[0]
+		// Parse the message
+		msgStr := strings.TrimSpace(string(buffer[:n]))
+		fmt.Println("Received:", msgStr)
 
-		r = strings.TrimSuffix(r, "\n")
+		msg, err := message.Unmarshal(msgStr)
+		if err != nil {
+			fmt.Printf("Failed to unmarshal message: %v\n", err)
+			continue
+		}
 
-		fmt.Println(r)
-
-		res := message.Unmarshal(r)
-
-		s.protocol(res, remoteAddr, tPort, request, fName, uRequest, uFName)
+		s.handleMessage(ctx, msg, remoteAddr, tPort, request, fName, uRequest, uFName)
 	}
 }
 
-func (s *Server) protocol(res message.Message, remoteAddr *net.UDPAddr, tcpPort int, request chan string, fName chan string, uRequest chan string, uFName chan string) {
-	fmt.Println("protocol")
+func (s *Server) handleMessage(ctx context.Context, msg message.Message, remoteAddr *net.UDPAddr, tcpPort int, request chan<- string, fName chan<- string, uRequest chan<- string, uFName chan<- string) {
+	fmt.Println("Processing message")
 
-	switch t := res.(type) {
+	switch t := msg.(type) {
 	case *message.Discover:
-		port := strconv.Itoa(s.Port)
-		s.Cluster.Merge(s.IP+":"+port, t.List)
+		host := fmt.Sprintf("%s:%d", s.IP, s.Port)
+		s.Cluster.Merge(host, t.List)
+
 	case *message.Get:
 		if s.Search(t.Name) {
-			go s.transfer(remoteAddr, (&message.File{Method:s.method, TCPPort: tcpPort, UDPPort:s.UDPPort}).Marshal())
+			go s.transfer(remoteAddr, (&message.File{
+				Method:  s.method,
+				TCPPort: tcpPort,
+				UDPPort: s.UDPPort,
+			}).Marshal())
 		}
+
 	case *message.File:
-		if s.waiting {
+		s.waitingMutex.Lock()
+		isWaiting := s.waiting
+		s.waitingMutex.Unlock()
+
+		if isWaiting {
 			// Add to prior list
-			exists := false
+			s.addToPrior(remoteAddr.String())
 
-			for _, ip := range s.prior {
-				if ip == remoteAddr.String() {
-					exists = true
-					break
-				}
+			// Cancel waiting
+			s.waitingMutex.Lock()
+			s.waiting = false
+			if s.waitingCancel != nil {
+				s.waitingCancel()
 			}
-
-			if !exists {
-				s.prior = append(s.prior, remoteAddr.String())
-			}
+			s.waitingMutex.Unlock()
 
 			ip := remoteAddr.IP.String()
-			s.waiting = false
 
-			if t.Method == 1 {
+			if t.Method == config.TransferMethodTCP {
 				request <- fmt.Sprintf("%s:%d", ip, t.TCPPort)
 				fName <- s.Req
-			}else {
+			} else {
 				uRequest <- fmt.Sprintf("%s:%d", ip, t.UDPPort)
 				uFName <- s.Req
-
 			}
 		}
 	}
-
 }
 
-func (s *Server) transfer(addr *net.UDPAddr, message string) {
-	exists := false
+func (s *Server) transfer(addr *net.UDPAddr, msg string) {
+	// Check if this is a priority responder
+	if !s.isPrior(addr.String()) {
+		time.Sleep(config.NonPriorResponseDelay)
+	}
 
-	for _, ip := range s.prior {
-		if ip == addr.String() {
-			exists = true
-			break
+	if _, err := s.conn.WriteToUDP([]byte(msg), addr); err != nil {
+		fmt.Printf("Failed to send transfer message: %v\n", err)
+	}
+}
+
+// Discover periodically broadcasts cluster information
+func (s *Server) Discover(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-s.DiscoveryTicker.C:
+			list := s.Cluster.List()
+			msg := (&message.Discover{List: list}).Marshal()
+			if err := s.Cluster.Broadcast(s.conn, msg); err != nil {
+				fmt.Printf("Discovery broadcast error: %v\n", err)
+			}
 		}
 	}
-
-	if !exists {
-		time.Sleep(10 * time.Second)
-	}
-
-	_, err := s.conn.WriteToUDP([]byte(message), addr)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
 }
 
-func (s *Server) Discover() {
-	for {
-		<-s.DiscoveryTicker.C
-		s.Cluster.Broadcast(s.conn, (&message.Discover{List: s.Cluster.List}).Marshal())
-	}
-}
-
-func (s *Server) File() {
+// File broadcasts a file request to the cluster
+func (s *Server) File(ctx context.Context) {
+	s.waitingMutex.Lock()
 	s.waiting = true
-	s.waitingTicker = time.NewTicker(time.Duration(s.WaitingDuration) * time.Second)
-	s.Cluster.Broadcast(s.conn, (&message.Get{Name: s.Req}).Marshal())
-	<-s.waitingTicker.C
+	waitCtx, cancel := context.WithTimeout(ctx, s.waitingDuration)
+	s.waitingCancel = cancel
+	s.waitingMutex.Unlock()
+
+	msg := (&message.Get{Name: s.Req}).Marshal()
+	if err := s.Cluster.Broadcast(s.conn, msg); err != nil {
+		fmt.Printf("File request broadcast error: %v\n", err)
+	}
+
+	// Wait for timeout or response
+	<-waitCtx.Done()
+
+	s.waitingMutex.Lock()
 	s.waiting = false
-	s.waitingTicker.Stop()
+	s.waitingCancel = nil
+	s.waitingMutex.Unlock()
 }
 
-func (s *Server) Search(file string) bool {
-	found := false
+// Search checks if a file exists in the shared folder
+func (s *Server) Search(filename string) bool {
+	// Sanitize filename to prevent path traversal
+	safeFilename := filepath.Base(filename)
+
+	// Check file index cache first
+	s.fileIndexMutex.RLock()
+	_, found := s.fileIndex[safeFilename]
+	s.fileIndexMutex.RUnlock()
+
+	if found {
+		return true
+	}
+
+	// Rebuild index and check again (file might have been added)
+	s.rebuildFileIndex()
+
+	s.fileIndexMutex.RLock()
+	_, found = s.fileIndex[safeFilename]
+	s.fileIndexMutex.RUnlock()
+
+	return found
+}
+
+// rebuildFileIndex scans the folder and rebuilds the file index
+func (s *Server) rebuildFileIndex() {
+	s.fileIndexMutex.Lock()
+	defer s.fileIndexMutex.Unlock()
+
+	// Clear existing index
+	s.fileIndex = make(map[string]string)
 
 	err := filepath.Walk(s.folder, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return err
+			return nil // Skip files with errors
 		}
 
-		if file == info.Name() {
-			found = true
-			return nil
+		if !info.IsDir() {
+			s.fileIndex[info.Name()] = path
 		}
 
 		return nil
 	})
 
 	if err != nil {
-		panic(err)
+		fmt.Printf("Error rebuilding file index: %v\n", err)
 	}
+}
 
-	return found
+// GetFilePath returns the full path for a filename if it exists
+func (s *Server) GetFilePath(filename string) (string, bool) {
+	safeFilename := filepath.Base(filename)
+
+	s.fileIndexMutex.RLock()
+	path, found := s.fileIndex[safeFilename]
+	s.fileIndexMutex.RUnlock()
+
+	return path, found
+}
+
+func (s *Server) addToPrior(addr string) {
+	s.priorMutex.Lock()
+	defer s.priorMutex.Unlock()
+
+	if !utils.Contains(s.prior, addr) {
+		s.prior = append(s.prior, addr)
+	}
+}
+
+func (s *Server) isPrior(addr string) bool {
+	s.priorMutex.RLock()
+	defer s.priorMutex.RUnlock()
+
+	return utils.Contains(s.prior, addr)
+}
+
+// Close shuts down the UDP server
+func (s *Server) Close() error {
+	s.DiscoveryTicker.Stop()
+	if s.conn != nil {
+		return s.conn.Close()
+	}
+	return nil
 }

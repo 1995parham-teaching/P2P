@@ -1,128 +1,153 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
 	"os"
 	"strconv"
 
-	"github.com/elahe-dstn/p2p/message"
+	"github.com/1995parham-teaching/P2P/config"
+	"github.com/1995parham-teaching/P2P/internal/utils"
+	"github.com/1995parham-teaching/P2P/message"
 )
 
-const BUFFERSIZE = 1024
-
 type Server struct {
-	TCPPort int
-	folder  string
+	TCPPort  int
+	folder   string
+	listener *net.TCPListener
+	host     string
 }
 
-func New(folder string) Server {
-	return Server{folder: folder}
+func New(folder string, host string) *Server {
+	return &Server{
+		folder: folder,
+		host:   host,
+	}
 }
 
-func (s *Server) Up(tcpPort chan int) {
+// Up starts the TCP server and listens for incoming connections
+func (s *Server) Up(ctx context.Context, tcpPort chan<- int) error {
 	addr := net.TCPAddr{
-		IP:   net.ParseIP("127.0.0.1"),
-		Port: 0,
+		IP:   net.ParseIP(s.host),
+		Port: 0, // Let OS assign a port
 	}
 
-	l, err := net.ListenTCP("tcp", &addr)
+	listener, err := net.ListenTCP("tcp", &addr)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return fmt.Errorf("failed to start TCP listener: %w", err)
 	}
+	s.listener = listener
 
-	s.TCPPort = l.Addr().(*net.TCPAddr).Port
-
+	s.TCPPort = listener.Addr().(*net.TCPAddr).Port
 	tcpPort <- s.TCPPort
 
+	// Handle graceful shutdown
+	go func() {
+		<-ctx.Done()
+		listener.Close()
+	}()
+
 	for {
-		c, err := l.Accept()
+		conn, err := listener.Accept()
 		if err != nil {
-			fmt.Println(err)
-			return
+			select {
+			case <-ctx.Done():
+				return nil // Graceful shutdown
+			default:
+				fmt.Printf("Failed to accept connection: %v\n", err)
+				continue
+			}
 		}
 
-		m := make([]byte, 2048)
-
-		_, err = c.Read(m)
-
-		fmt.Println(string(m))
-
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-
-		res := message.Unmarshal(string(m))
-		g := res.(*message.Get)
-
-		go s.send(c, g.Name)
+		go s.handleConnection(conn)
 	}
 }
 
-func (s *Server) send(conn io.WriteCloser, name string) {
-	fmt.Println("A client has connected!")
-
+func (s *Server) handleConnection(conn net.Conn) {
 	defer conn.Close()
 
-	file, err := os.Open(s.folder + "/" + name)
+	buffer := make([]byte, config.UDPBufferSize)
+	n, err := conn.Read(buffer)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Printf("Failed to read from connection: %v\n", err)
 		return
 	}
+
+	msg, err := message.Unmarshal(string(buffer[:n]))
+	if err != nil {
+		fmt.Printf("Failed to unmarshal message: %v\n", err)
+		return
+	}
+
+	getMsg, ok := msg.(*message.Get)
+	if !ok {
+		fmt.Println("Expected Get message, got something else")
+		return
+	}
+
+	if err := s.send(conn, getMsg.Name); err != nil {
+		fmt.Printf("Failed to send file: %v\n", err)
+	}
+}
+
+func (s *Server) send(conn io.Writer, name string) error {
+	fmt.Println("A client has connected!")
+
+	// Use safe path to prevent directory traversal attacks
+	filePath := utils.SafePath(s.folder, name)
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to open file %s: %w", filePath, err)
+	}
+	defer file.Close()
 
 	fileInfo, err := file.Stat()
 	if err != nil {
-		fmt.Println(err)
-		return
+		return fmt.Errorf("failed to stat file: %w", err)
 	}
 
-	fileSize := fillString(strconv.FormatInt(fileInfo.Size(), 10), 10)
-	fileName := fillString(fileInfo.Name(), 64)
+	fileSize := utils.FillString(strconv.FormatInt(fileInfo.Size(), 10), config.FileSizeLength, ':')
+	fileName := utils.FillString(fileInfo.Name(), config.FileNameLength, ':')
 
 	fmt.Println("Sending filename and filesize!")
 
-	_, err = conn.Write([]byte(fileSize))
-	if err != nil {
-		fmt.Println(err)
+	if _, err := conn.Write([]byte(fileSize)); err != nil {
+		return fmt.Errorf("failed to write file size: %w", err)
 	}
 
-	_, err = conn.Write([]byte(fileName))
-	if err != nil {
-		fmt.Println(err)
+	if _, err := conn.Write([]byte(fileName)); err != nil {
+		return fmt.Errorf("failed to write file name: %w", err)
 	}
 
-	sendBuffer := make([]byte, BUFFERSIZE)
+	sendBuffer := make([]byte, config.BufferSize)
 
 	fmt.Println("Start sending file")
 
 	for {
-		_, err = file.Read(sendBuffer)
+		n, err := file.Read(sendBuffer)
 		if err == io.EOF {
 			break
 		}
-
-		_, err = conn.Write(sendBuffer)
 		if err != nil {
-			fmt.Println(err)
+			return fmt.Errorf("failed to read file: %w", err)
+		}
+
+		if _, err := conn.Write(sendBuffer[:n]); err != nil {
+			return fmt.Errorf("failed to write file data: %w", err)
 		}
 	}
 
 	fmt.Println("File has been sent, closing connection!")
+	return nil
 }
 
-func fillString(retunString string, toLength int) string {
-	for {
-		lengtString := len(retunString)
-		if lengtString < toLength {
-			retunString += ":"
-			continue
-		}
-
-		break
+// Close gracefully shuts down the server
+func (s *Server) Close() error {
+	if s.listener != nil {
+		return s.listener.Close()
 	}
-
-	return retunString
+	return nil
 }
