@@ -4,25 +4,26 @@ A peer-to-peer file sharing application demonstrating socket programming concept
 
 ## Architecture Overview
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
-│                          Node                                │
+│                          Node                               │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
 │  │  UDP Server │  │  TCP Server │  │  Reliable UDP Server│  │
 │  │  (Discovery │  │  (File      │  │  (Stop-and-Wait     │  │
 │  │   & Control)│  │   Transfer) │  │   File Transfer)    │  │
 │  └──────┬──────┘  └──────┬──────┘  └──────────┬──────────┘  │
-│         │                │                     │             │
-│         └────────────────┼─────────────────────┘             │
-│                          │                                   │
-│                    ┌─────┴─────┐                             │
-│                    │  Cluster  │                             │
-│                    │  Manager  │                             │
-│                    └───────────┘                             │
+│         │                │                    │             │
+│         └────────────────┼────────────────────┘             │
+│                          │                                  │
+│                    ┌─────┴─────┐                            │
+│                    │  Cluster  │                            │
+│                    │  Manager  │                            │
+│                    └───────────┘                            │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 Each node runs three servers:
+
 - **UDP Server**: Handles peer discovery and file request coordination
 - **TCP Server**: Serves files to requesting peers (reliable, built-in)
 - **Reliable UDP Server**: Alternative file transfer using stop-and-wait protocol
@@ -74,6 +75,7 @@ When a user wants to download a file:
 ```
 
 **Steps:**
+
 1. Node A broadcasts a `Get` message to all cluster members
 2. Each node searches its shared folder for the file
 3. Nodes that have the file respond with a `File` message containing the transfer method and port
@@ -95,13 +97,14 @@ All messages are newline-terminated strings with comma-separated fields.
 
 ### UDP Messages
 
-| Message | Format | Description |
-|---------|--------|-------------|
-| Discover | `DISCOVER,ip1:port1,ip2:port2,...` | Share cluster membership |
-| Get | `Get,filename` | Request a file from the cluster |
-| File | `File,method,port` | Respond that file is available |
+| Message  | Format                             | Description                     |
+| -------- | ---------------------------------- | ------------------------------- |
+| Discover | `DISCOVER,ip1:port1,ip2:port2,...` | Share cluster membership        |
+| Get      | `Get,filename`                     | Request a file from the cluster |
+| File     | `File,method,port`                 | Respond that file is available  |
 
 **Method values:**
+
 - `1` = TCP transfer
 - `2` = Reliable UDP transfer
 
@@ -122,23 +125,23 @@ All messages are newline-terminated strings with comma-separated fields.
 
 ### Reliable UDP Messages (Stop-and-Wait)
 
-| Message | Format | Description |
-|---------|--------|-------------|
-| Size | `Size,bytes` | File size in bytes |
-| FileName | `Name,filename` | Name of the file |
-| Segment | `Segment,base64data` | File chunk (base64 encoded) |
-| Ack | `Ack,seq` | Acknowledgment with sequence number |
+| Message  | Format               | Description                         |
+| -------- | -------------------- | ----------------------------------- |
+| Size     | `Size,bytes`         | File size in bytes                  |
+| FileName | `Name,filename`      | Name of the file                    |
+| Segment  | `Segment,base64data` | File chunk (base64 encoded)         |
+| Ack      | `Ack,seq`            | Acknowledgment with sequence number |
 
 ## Configuration
 
 Configuration can be set via `config.yml` or environment variables (prefixed with `P2P_`):
 
 ```yaml
-host: "127.0.0.1"      # Node's IP address
-port: 1378             # UDP port for discovery
-period: 20             # Discovery broadcast interval (seconds)
-waiting: 100           # File request timeout (seconds)
-type: 1                # Transfer method: 1=TCP, 2=Reliable UDP
+host: "127.0.0.1" # Node's IP address
+port: 1378 # UDP port for discovery
+period: 20 # Discovery broadcast interval (seconds)
+waiting: 100 # File request timeout (seconds)
+type: 1 # Transfer method: 1=TCP, 2=Reliable UDP
 addr: "127.0.0.1:1999" # Reliable UDP server address
 ```
 
@@ -176,6 +179,7 @@ go build -o p2p
 ```
 
 The node will prompt for:
+
 1. **Shared folder**: Directory containing files to share
 2. **Cluster members**: Initial list of peer addresses (IP:port format)
 
@@ -183,15 +187,16 @@ The node will prompt for:
 
 Once running, enter commands at the prompt:
 
-| Command | Description |
-|---------|-------------|
-| `list` | Show all known cluster members |
+| Command          | Description                      |
+| ---------------- | -------------------------------- |
+| `list`           | Show all known cluster members   |
 | `get <filename>` | Download a file from the cluster |
-| `quit` | Shutdown the node gracefully |
+| `quit`           | Shutdown the node gracefully     |
 
 ## Example Session
 
 **Terminal 1 (Node A on port 1378):**
+
 ```
 $ ./p2p node
 Enter the folder you want to share:
@@ -208,6 +213,7 @@ Received file completely!
 ```
 
 **Terminal 2 (Node B on port 1379):**
+
 ```
 $ ./p2p node
 Enter the folder you want to share:
@@ -227,6 +233,7 @@ File has been sent, closing connection!
 ### 1. TCP (Method 1)
 
 Uses Go's built-in TCP for reliable, ordered delivery. The OS handles:
+
 - Connection establishment (3-way handshake)
 - Flow control
 - Congestion control
