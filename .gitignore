@@ -27,5 +27,10 @@
 
 ### binary
 urlShortener_KGS
+p2p
+
+# Demo downloaded files (keep only hello-from-*.txt)
+demo/node*/downloading_*
+demo/node*/receiving_*
 
 # End of https://www.gitignore.io/api/go

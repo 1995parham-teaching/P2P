@@ -1,0 +1,52 @@
+services:
+  node1:
+    build: .
+    container_name: p2p-node1
+    hostname: node1
+    environment:
+      - P2P_HOST=node1
+      - P2P_PORT=1378
+      - P2P_FOLDER=/app/shared
+      - P2P_CLUSTER=node2:1378,node3:1378
+    volumes:
+      - ./demo/node1:/app/shared
+    networks:
+      - p2p-network
+    stdin_open: true
+    tty: true
+
+  node2:
+    build: .
+    container_name: p2p-node2
+    hostname: node2
+    environment:
+      - P2P_HOST=node2
+      - P2P_PORT=1378
+      - P2P_FOLDER=/app/shared
+      - P2P_CLUSTER=node1:1378,node3:1378
+    volumes:
+      - ./demo/node2:/app/shared
+    networks:
+      - p2p-network
+    stdin_open: true
+    tty: true
+
+  node3:
+    build: .
+    container_name: p2p-node3
+    hostname: node3
+    environment:
+      - P2P_HOST=node3
+      - P2P_PORT=1378
+      - P2P_FOLDER=/app/shared
+      - P2P_CLUSTER=node1:1378,node2:1378
+    volumes:
+      - ./demo/node3:/app/shared
+    networks:
+      - p2p-network
+    stdin_open: true
+    tty: true
+
+networks:
+  p2p-network:
+    driver: bridge

@@ -1,0 +1,23 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Build artifacts
+p2p
+*.exe
+
+# Documentation
+*.md
+LICENSE
+
+# Demo files (mounted as volumes instead)
+demo/
+
+# Claude
+.claude/

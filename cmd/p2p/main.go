@@ -10,18 +10,43 @@ import (
 )
 
 func main() {
-	reader := bufio.NewReader(os.Stdin)
+	// Check for environment variables (for Docker/automated deployment)
+	folder := os.Getenv("P2P_FOLDER")
+	clusterEnv := os.Getenv("P2P_CLUSTER")
 
-	folder, err := getFolder(reader)
-	if err != nil {
-		fmt.Printf("Error getting folder: %v\n", err)
-		os.Exit(1)
-	}
+	var clusterList []string
+	var err error
 
-	clusterList, err := getClusterMembers(reader)
-	if err != nil {
-		fmt.Printf("Error getting cluster members: %v\n", err)
-		os.Exit(1)
+	if folder != "" && clusterEnv != "" {
+		// Use environment variables
+		fmt.Printf("Using environment configuration:\n")
+		fmt.Printf("  Folder: %s\n", folder)
+		fmt.Printf("  Cluster: %s\n", clusterEnv)
+
+		// Parse cluster list from comma-separated string
+		if clusterEnv != "" {
+			for _, addr := range strings.Split(clusterEnv, ",") {
+				addr = strings.TrimSpace(addr)
+				if addr != "" {
+					clusterList = append(clusterList, addr)
+				}
+			}
+		}
+	} else {
+		// Interactive mode
+		reader := bufio.NewReader(os.Stdin)
+
+		folder, err = getFolder(reader)
+		if err != nil {
+			fmt.Printf("Error getting folder: %v\n", err)
+			os.Exit(1)
+		}
+
+		clusterList, err = getClusterMembers(reader)
+		if err != nil {
+			fmt.Printf("Error getting cluster members: %v\n", err)
+			os.Exit(1)
+		}
 	}
 
 	n, err := node.New(folder, clusterList)

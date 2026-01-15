@@ -1,0 +1,6 @@
+Hello! This file is shared from Node 2.
+
+You can download this file from any other node in the cluster using:
+  get hello-from-node2.txt
+
+This demonstrates the P2P file sharing capability.

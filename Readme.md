@@ -192,12 +192,25 @@ P2P/
 
 ## Running a Node
 
+### Local Build
+
 ```bash
 # Build
 go build -o p2p ./cmd/p2p
 
 # Run
 ./p2p
+```
+
+### Using Just
+
+[Just](https://github.com/casey/just) is a command runner. Install it and run:
+
+```bash
+just          # Show available commands
+just build    # Build the application
+just run      # Build and run
+just test     # Run tests
 ```
 
 The node will prompt for:
@@ -249,6 +262,96 @@ Sending filename and filesize!
 Start sending file
 File has been sent, closing connection!
 ```
+
+## Docker Demo
+
+The easiest way to demo the P2P application is using Docker Compose, which sets up 3 interconnected nodes automatically.
+
+### Quick Start
+
+```bash
+# Start the demo (builds and runs 3 nodes)
+just demo
+
+# Or manually:
+docker compose up -d
+```
+
+### Interacting with Nodes
+
+Each node runs in its own container with a pre-configured shared folder:
+
+```bash
+# Attach to node1
+just attachnode1
+
+# Or directly with docker:
+docker attach p2p-node1
+```
+
+### Demo Walkthrough
+
+1. **Start the demo:**
+
+   ```bash
+   just demo
+   ```
+
+2. **Attach to node1:**
+
+   ```bash
+   just attachnode1
+   ```
+
+3. **List cluster members:**
+
+   ```
+   list
+   Cluster members:
+     1. node2:1378
+     2. node3:1378
+   ```
+
+4. **Download a file from another node:**
+
+   ```
+   get hello-from-node2.txt
+   Received file completely!
+   ```
+
+5. **Check the downloaded file:**
+
+   ```bash
+   cat demo/node1/hello-from-node2.txt
+   ```
+
+6. **Stop the demo:**
+   ```bash
+   just docker-down
+   ```
+
+### Demo Directory Structure
+
+```
+demo/
+├── node1/
+│   └── hello-from-node1.txt    # Shared by node1
+├── node2/
+│   └── hello-from-node2.txt    # Shared by node2
+└── node3/
+    └── hello-from-node3.txt    # Shared by node3
+```
+
+### Environment Variables
+
+When running with Docker, the following environment variables configure the node:
+
+| Variable      | Description                            | Example                 |
+| ------------- | -------------------------------------- | ----------------------- |
+| `P2P_HOST`    | Node's hostname/IP                     | `node1`                 |
+| `P2P_PORT`    | UDP port for discovery                 | `1378`                  |
+| `P2P_FOLDER`  | Shared folder path                     | `/app/shared`           |
+| `P2P_CLUSTER` | Comma-separated list of peer addresses | `node2:1378,node3:1378` |
 
 ## Reliable Data Transfer Methods
 
