@@ -1,20 +1,24 @@
 package node
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"io"
-	"os"
-	"strings"
 	"sync"
 	"time"
+
+	"github.com/pterm/pterm"
 
 	"github.com/1995parham-teaching/P2P/internal/cluster"
 	"github.com/1995parham-teaching/P2P/internal/config"
 	"github.com/1995parham-teaching/P2P/internal/tcp/client"
 	tcp "github.com/1995parham-teaching/P2P/internal/tcp/server"
 	udp "github.com/1995parham-teaching/P2P/internal/udp/server"
+)
+
+const (
+	menuList     = "List cluster members"
+	menuGet      = "Download a file"
+	menuQuit     = "Quit"
 )
 
 type Node struct {
@@ -67,7 +71,7 @@ func (n *Node) Run() error {
 	go func() {
 		defer n.wg.Done()
 		if err := n.TCPServer.Up(n.ctx, n.TCPPort); err != nil {
-			fmt.Printf("TCP server error: %v\n", err)
+			pterm.Error.Printf("TCP server error: %v\n", err)
 		}
 	}()
 
@@ -76,7 +80,7 @@ func (n *Node) Run() error {
 	go func() {
 		defer n.wg.Done()
 		if err := n.TCPClient.Connect(n.ctx, n.Addr, n.fileName); err != nil {
-			fmt.Printf("TCP client error: %v\n", err)
+			pterm.Error.Printf("TCP client error: %v\n", err)
 		}
 	}()
 
@@ -85,7 +89,7 @@ func (n *Node) Run() error {
 	go func() {
 		defer n.wg.Done()
 		if err := n.UDPServer.Up(n.ctx, n.TCPPort, n.Addr, n.fileName); err != nil {
-			fmt.Printf("UDP server error: %v\n", err)
+			pterm.Error.Printf("UDP server error: %v\n", err)
 		}
 	}()
 
@@ -101,7 +105,7 @@ func (n *Node) Run() error {
 }
 
 func (n *Node) handleUserInput() error {
-	reader := bufio.NewReader(os.Stdin)
+	options := []string{menuList, menuGet, menuQuit}
 
 	for {
 		select {
@@ -110,58 +114,98 @@ func (n *Node) handleUserInput() error {
 		default:
 		}
 
-		fmt.Println("Enter a file you want to download or 'list' to see the cluster ('quit' to exit)")
+		pterm.Println()
+		selectedOption, err := pterm.DefaultInteractiveSelect.
+			WithOptions(options).
+			WithDefaultText("What would you like to do?").
+			Show()
 
-		text, err := reader.ReadString('\n')
 		if err != nil {
-			if err == io.EOF {
+			// Handle Ctrl+C or other interrupts
+			if err.Error() == "^C" {
+				n.Shutdown()
 				return nil
 			}
-			fmt.Printf("Error reading input: %v\n", err)
+			pterm.Error.Printf("Error reading input: %v\n", err)
 			continue
 		}
 
-		text = strings.TrimSpace(text)
-		if text == "" {
-			continue
-		}
+		switch selectedOption {
+		case menuList:
+			n.showClusterMembers()
 
-		parts := strings.SplitN(text, " ", 2)
-		command := parts[0]
+		case menuGet:
+			n.downloadFile()
 
-		switch command {
-		case "list":
-			list := n.UDPServer.Cluster.List()
-			fmt.Println("Cluster members:")
-			for i, addr := range list {
-				fmt.Printf("  %d. %s\n", i+1, addr)
-			}
-			if len(list) == 0 {
-				fmt.Println("  (no members)")
-			}
-
-		case "get":
-			if len(parts) < 2 {
-				fmt.Println("Usage: get <filename>")
-				continue
-			}
-			fileName := parts[1]
-			n.UDPServer.Req = fileName
-			n.UDPServer.File(n.ctx)
-
-		case "quit", "exit":
+		case menuQuit:
 			n.Shutdown()
 			return nil
-
-		default:
-			fmt.Println("Unknown command. Use 'list', 'get <filename>', or 'quit'")
 		}
 	}
 }
 
+func (n *Node) showClusterMembers() {
+	list := n.UDPServer.Cluster.List()
+
+	pterm.Println()
+	if len(list) == 0 {
+		pterm.Warning.Println("No cluster members found")
+		return
+	}
+
+	// Create table data
+	tableData := pterm.TableData{
+		{"#", "Address"},
+	}
+
+	for i, addr := range list {
+		tableData = append(tableData, []string{
+			fmt.Sprintf("%d", i+1),
+			addr,
+		})
+	}
+
+	pterm.DefaultTable.
+		WithHasHeader().
+		WithBoxed().
+		WithData(tableData).
+		Render()
+
+	pterm.Info.Printf("Total: %d member(s)\n", len(list))
+}
+
+func (n *Node) downloadFile() {
+	fileName, err := pterm.DefaultInteractiveTextInput.
+		WithDefaultText("").
+		Show("Enter filename to download")
+
+	if err != nil {
+		pterm.Error.Printf("Error: %v\n", err)
+		return
+	}
+
+	if fileName == "" {
+		pterm.Warning.Println("No filename provided")
+		return
+	}
+
+	pterm.Info.Printf("Requesting file: %s\n", fileName)
+
+	spinner, _ := pterm.DefaultSpinner.
+		WithRemoveWhenDone(true).
+		Start("Searching for file in cluster...")
+
+	n.UDPServer.Req = fileName
+	n.UDPServer.File(n.ctx)
+
+	spinner.Stop()
+}
+
 // Shutdown gracefully stops the node
 func (n *Node) Shutdown() {
-	fmt.Println("Shutting down...")
+	pterm.Println()
+	spinner, _ := pterm.DefaultSpinner.Start("Shutting down...")
+
 	n.cancel()
 
 	// Close servers
@@ -170,5 +214,6 @@ func (n *Node) Shutdown() {
 
 	// Wait for goroutines to finish
 	n.wg.Wait()
-	fmt.Println("Shutdown complete")
+
+	spinner.Success("Shutdown complete")
 }

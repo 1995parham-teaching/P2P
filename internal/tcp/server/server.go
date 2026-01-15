@@ -2,13 +2,14 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/pterm/pterm"
 
 	"github.com/1995parham-teaching/P2P/internal/config"
 	"github.com/1995parham-teaching/P2P/internal/message"
@@ -37,7 +38,7 @@ func (s *Server) Up(ctx context.Context, tcpPort chan<- int) error {
 
 	listener, err := net.ListenTCP("tcp", &addr)
 	if err != nil {
-		return fmt.Errorf("failed to start TCP listener: %w", err)
+		return err
 	}
 	s.listener = listener
 
@@ -57,7 +58,7 @@ func (s *Server) Up(ctx context.Context, tcpPort chan<- int) error {
 			case <-ctx.Done():
 				return nil // Graceful shutdown
 			default:
-				fmt.Printf("Failed to accept connection: %v\n", err)
+				pterm.Error.Printf("Failed to accept connection: %v\n", err)
 				continue
 			}
 		}
@@ -72,60 +73,66 @@ func (s *Server) handleConnection(conn net.Conn) {
 	buffer := make([]byte, config.UDPBufferSize)
 	n, err := conn.Read(buffer)
 	if err != nil {
-		fmt.Printf("Failed to read from connection: %v\n", err)
+		pterm.Error.Printf("Failed to read from connection: %v\n", err)
 		return
 	}
 
 	msg, err := message.Unmarshal(string(buffer[:n]))
 	if err != nil {
-		fmt.Printf("Failed to unmarshal message: %v\n", err)
+		pterm.Error.Printf("Failed to unmarshal message: %v\n", err)
 		return
 	}
 
 	getMsg, ok := msg.(*message.Get)
 	if !ok {
-		fmt.Println("Expected Get message, got something else")
+		pterm.Warning.Println("Expected Get message, got something else")
 		return
 	}
 
 	if err := s.send(conn, getMsg.Name); err != nil {
-		fmt.Printf("Failed to send file: %v\n", err)
+		pterm.Error.Printf("Failed to send file: %v\n", err)
 	}
 }
 
 func (s *Server) send(conn io.Writer, name string) error {
-	fmt.Println("A client has connected!")
+	pterm.Info.Println("A client has connected!")
 
 	// Use safe path to prevent directory traversal attacks
 	filePath := safePath(s.folder, name)
 
 	file, err := os.Open(filePath)
 	if err != nil {
-		return fmt.Errorf("failed to open file %s: %w", filePath, err)
+		return err
 	}
 	defer file.Close()
 
 	fileInfo, err := file.Stat()
 	if err != nil {
-		return fmt.Errorf("failed to stat file: %w", err)
+		return err
 	}
 
 	fileSize := fillString(strconv.FormatInt(fileInfo.Size(), 10), config.FileSizeLength, ':')
 	fileName := fillString(fileInfo.Name(), config.FileNameLength, ':')
 
-	fmt.Println("Sending filename and filesize!")
+	pterm.Info.Printf("Sending file: %s (%d bytes)\n", fileInfo.Name(), fileInfo.Size())
 
 	if _, err := conn.Write([]byte(fileSize)); err != nil {
-		return fmt.Errorf("failed to write file size: %w", err)
+		return err
 	}
 
 	if _, err := conn.Write([]byte(fileName)); err != nil {
-		return fmt.Errorf("failed to write file name: %w", err)
+		return err
 	}
 
-	sendBuffer := make([]byte, config.BufferSize)
+	// Create progress bar for upload
+	progressBar, _ := pterm.DefaultProgressbar.
+		WithTotal(int(fileInfo.Size())).
+		WithTitle("Uploading " + fileInfo.Name()).
+		WithShowPercentage(true).
+		WithShowElapsedTime(true).
+		Start()
 
-	fmt.Println("Start sending file")
+	sendBuffer := make([]byte, config.BufferSize)
 
 	for {
 		n, err := file.Read(sendBuffer)
@@ -133,15 +140,20 @@ func (s *Server) send(conn io.Writer, name string) error {
 			break
 		}
 		if err != nil {
-			return fmt.Errorf("failed to read file: %w", err)
+			progressBar.Stop()
+			return err
 		}
 
 		if _, err := conn.Write(sendBuffer[:n]); err != nil {
-			return fmt.Errorf("failed to write file data: %w", err)
+			progressBar.Stop()
+			return err
 		}
+
+		progressBar.Add(n)
 	}
 
-	fmt.Println("File has been sent, closing connection!")
+	progressBar.Stop()
+	pterm.Success.Println("File sent successfully!")
 	return nil
 }
 

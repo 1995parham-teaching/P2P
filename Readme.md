@@ -1,6 +1,7 @@
 # P2P File Sharing
 
-A peer-to-peer file sharing application demonstrating socket programming concepts in Go. Nodes discover each other, share cluster membership, and transfer files using TCP.
+A peer-to-peer file sharing application demonstrating socket programming concepts in Go.
+Nodes discover each other, share cluster membership, and transfer files using TCP.
 
 ## Architecture Overview
 
@@ -31,7 +32,8 @@ Each node runs two servers:
 
 ### 1. Cluster Discovery
 
-Nodes maintain a list of known peers (the "cluster"). Periodically, each node broadcasts its cluster list to all known peers via UDP:
+Nodes maintain a list of known peers (the "cluster").
+Periodically, each node broadcasts its cluster list to all known peers via UDP:
 
 ```text
 Node A                     Node B                     Node C
@@ -43,7 +45,8 @@ Node A                     Node B                     Node C
    │                          │──DISCOVER,[A,B]─────────>│
 ```
 
-When a node receives a `DISCOVER` message, it merges the received list with its own, learning about new peers transitively.
+When a node receives a `DISCOVER` message,
+it merges the received list with its own, learning about new peers transitively.
 
 ### 2. File Request Flow
 
@@ -83,7 +86,8 @@ When a user wants to download a file:
 
 ### 3. Priority Responders
 
-The system tracks "priority responders" - peers that have responded quickly to previous requests. When responding to a file request:
+The system tracks "priority responders" - peers that have responded quickly to previous requests.
+When responding to a file request:
 
 - **Priority peers**: Respond immediately
 - **Non-priority peers**: Wait 10 seconds before responding
@@ -168,9 +172,7 @@ P2P/
 ### Directory Descriptions
 
 - **`/cmd`**: Main applications for this project. The directory name for each application should match the name of the executable (e.g., `/cmd/p2p`).
-
 - **`/internal`**: Private application and library code. This is the code you don't want others importing in their applications. Note that this layout pattern is enforced by the Go compiler.
-
 - **`/configs`**: Configuration file templates or default configs. Put your `config.yml` here or in the project root.
 
 ## Running a Node
@@ -215,7 +217,7 @@ Once running, enter commands at the prompt:
 
 **Terminal 1 (Node A on port 1378):**
 
-```
+```text
 $ ./p2p
 Enter the folder you want to share:
 /home/user/shared
@@ -232,7 +234,7 @@ Received file completely!
 
 **Terminal 2 (Node B on port 1379):**
 
-```
+```text
 $ ./p2p
 Enter the folder you want to share:
 /home/user/documents
@@ -288,7 +290,7 @@ docker attach p2p-node1
 
 3. **List cluster members:**
 
-   ```
+   ```text
    list
    Cluster members:
      1. node2:1378
@@ -297,7 +299,7 @@ docker attach p2p-node1
 
 4. **Download a file from another node:**
 
-   ```
+   ```text
    get hello-from-node2.txt
    Received file completely!
    ```
@@ -315,7 +317,7 @@ docker attach p2p-node1
 
 ### Demo Directory Structure
 
-```
+```text
 demo/
 ├── node1/
 │   └── hello-from-node1.txt    # Shared by node1

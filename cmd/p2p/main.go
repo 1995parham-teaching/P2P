@@ -1,27 +1,40 @@
 package main
 
 import (
-	"bufio"
-	"fmt"
 	"os"
 	"strings"
+
+	"github.com/pterm/pterm"
 
 	"github.com/1995parham-teaching/P2P/internal/node"
 )
 
 func main() {
+	// Print header
+	pterm.DefaultBigText.WithLetters(
+		pterm.NewLettersFromStringWithStyle("P2P", pterm.NewStyle(pterm.FgCyan)),
+	).Render()
+
+	pterm.DefaultHeader.WithBackgroundStyle(pterm.NewStyle(pterm.BgDarkGray)).
+		WithTextStyle(pterm.NewStyle(pterm.FgLightCyan)).
+		Println("Peer-to-Peer File Sharing")
+
+	pterm.Println()
+
 	// Check for environment variables (for Docker/automated deployment)
 	folder := os.Getenv("P2P_FOLDER")
 	clusterEnv := os.Getenv("P2P_CLUSTER")
 
 	var clusterList []string
-	var err error
 
 	if folder != "" && clusterEnv != "" {
 		// Use environment variables
-		fmt.Printf("Using environment configuration:\n")
-		fmt.Printf("  Folder: %s\n", folder)
-		fmt.Printf("  Cluster: %s\n", clusterEnv)
+		pterm.Info.Println("Using environment configuration")
+
+		pterm.DefaultBulletList.WithItems([]pterm.BulletListItem{
+			{Level: 0, Text: "Folder: " + pterm.LightCyan(folder)},
+			{Level: 0, Text: "Cluster: " + pterm.LightCyan(clusterEnv)},
+		}).Render()
 
 		// Parse cluster list from comma-separated string
 		if clusterEnv != "" {
@@ -34,87 +47,103 @@ func main() {
 		}
 	} else {
 		// Interactive mode
-		reader := bufio.NewReader(os.Stdin)
+		var err error
 
-		folder, err = getFolder(reader)
+		folder, err = getFolder()
 		if err != nil {
-			fmt.Printf("Error getting folder: %v\n", err)
+			pterm.Error.Printf("Error getting folder: %v\n", err)
 			os.Exit(1)
 		}
 
-		clusterList, err = getClusterMembers(reader)
+		clusterList, err = getClusterMembers()
 		if err != nil {
-			fmt.Printf("Error getting cluster members: %v\n", err)
+			pterm.Error.Printf("Error getting cluster members: %v\n", err)
 			os.Exit(1)
 		}
 	}
 
+	pterm.Println()
+	pterm.Success.Println("Configuration complete!")
+	pterm.Println()
+
 	n, err := node.New(folder, clusterList)
 	if err != nil {
-		fmt.Printf("Failed to create node: %v\n", err)
+		pterm.Error.Printf("Failed to create node: %v\n", err)
 		os.Exit(1)
 	}
 
 	if err := n.Run(); err != nil {
-		fmt.Printf("Node error: %v\n", err)
+		pterm.Error.Printf("Node error: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func getFolder(reader *bufio.Reader) (string, error) {
+func getFolder() (string, error) {
 	for {
-		fmt.Println("Enter the folder you want to share:")
-
-		folder, err := reader.ReadString('\n')
+		folder, err := pterm.DefaultInteractiveTextInput.
+			WithDefaultText("./shared").
+			Show("Enter the folder you want to share")
 		if err != nil {
-			return "", fmt.Errorf("failed to read input: %w", err)
+			return "", err
 		}
 
 		folder = strings.TrimSpace(folder)
+		if folder == "" {
+			folder = "./shared"
+		}
 
 		info, err := os.Stat(folder)
 		if err != nil {
-			fmt.Println("Couldn't find the folder, please try again")
+			pterm.Warning.Println("Couldn't find the folder, please try again")
 			continue
 		}
 
 		if !info.IsDir() {
-			fmt.Println("Path is not a directory, please try again")
+			pterm.Warning.Println("Path is not a directory, please try again")
 			continue
 		}
 
+		pterm.Success.Printf("Using folder: %s\n", folder)
 		return folder, nil
 	}
 }
 
-func getClusterMembers(reader *bufio.Reader) ([]string, error) {
-	fmt.Println("Enter your cluster members list (one per line, enter 'q' to finish):")
-
+func getClusterMembers() ([]string, error) {
 	var cluster []string
 
+	pterm.Info.Println("Add cluster members (IP:Port format)")
+	pterm.DefaultBasicText.WithStyle(pterm.NewStyle(pterm.FgGray)).
+		Println("Press Enter with empty input when done")
+	pterm.Println()
+
 	for {
-		text, err := reader.ReadString('\n')
+		text, err := pterm.DefaultInteractiveTextInput.
+			WithDefaultText("").
+			Show("Add peer address (or press Enter to finish)")
 		if err != nil {
-			return nil, fmt.Errorf("failed to read input: %w", err)
+			return nil, err
 		}
 
 		text = strings.TrimSpace(text)
 
-		if text == "q" || text == "Q" {
+		if text == "" {
 			break
 		}
 
-		if text == "" {
-			continue
-		}
-
 		if !strings.Contains(text, ":") {
-			fmt.Println("Invalid address format. Use IP:Port (e.g., 127.0.0.1:1378)")
+			pterm.Warning.Println("Invalid format. Use IP:Port (e.g., 127.0.0.1:1378)")
 			continue
 		}
 
 		cluster = append(cluster, text)
-		fmt.Printf("Added: %s\n", text)
+		pterm.Success.Printf("Added: %s\n", text)
+	}
+
+	if len(cluster) > 0 {
+		pterm.Println()
+		pterm.Info.Printf("Added %d cluster member(s)\n", len(cluster))
+	} else {
+		pterm.Info.Println("No cluster members added (standalone mode)")
 	}
 
 	return cluster, nil

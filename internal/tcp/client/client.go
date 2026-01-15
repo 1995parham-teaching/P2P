@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/pterm/pterm"
+
 	"github.com/1995parham-teaching/P2P/internal/config"
 	"github.com/1995parham-teaching/P2P/internal/message"
 )
@@ -31,7 +33,7 @@ func (c *Client) Connect(ctx context.Context, addr <-chan string, fileName <-cha
 		case serverAddr := <-addr:
 			fName := <-fileName
 			if err := c.downloadFile(serverAddr, fName); err != nil {
-				fmt.Printf("Failed to download file: %v\n", err)
+				pterm.Error.Printf("Failed to download file: %v\n", err)
 			}
 		}
 	}
@@ -46,24 +48,24 @@ func (c *Client) downloadFile(serverAddr, fileName string) error {
 
 	// Send the file request
 	if err := c.sendRequest(conn, fileName); err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
+		return err
 	}
 
 	// Read file size
 	bufferFileSize := make([]byte, config.FileSizeLength)
 	if _, err := io.ReadFull(conn, bufferFileSize); err != nil {
-		return fmt.Errorf("failed to read file size: %w", err)
+		return err
 	}
 
 	fileSize, err := strconv.ParseInt(strings.TrimRight(string(bufferFileSize), ":"), 10, 64)
 	if err != nil {
-		return fmt.Errorf("invalid file size: %w", err)
+		return err
 	}
 
 	// Read file name
 	bufferFileName := make([]byte, config.FileNameLength)
 	if _, err := io.ReadFull(conn, bufferFileName); err != nil {
-		return fmt.Errorf("failed to read file name: %w", err)
+		return err
 	}
 
 	receivedFileName := strings.TrimRight(string(bufferFileName), ":")
@@ -74,26 +76,36 @@ func (c *Client) downloadFile(serverAddr, fileName string) error {
 
 	newFile, err := os.Create(outputPath)
 	if err != nil {
-		return fmt.Errorf("failed to create output file: %w", err)
+		return err
 	}
 
-	// Read file content
-	if err := c.readFileContent(conn, fileSize, newFile); err != nil {
+	// Create progress bar
+	progressBar, _ := pterm.DefaultProgressbar.
+		WithTotal(int(fileSize)).
+		WithTitle("Downloading " + receivedFileName).
+		WithShowPercentage(true).
+		WithShowElapsedTime(true).
+		Start()
+
+	// Read file content with progress
+	if err := c.readFileContentWithProgress(conn, fileSize, newFile, progressBar); err != nil {
 		newFile.Close()
 		os.Remove(outputPath) // Clean up partial file
-		return fmt.Errorf("failed to read file content: %w", err)
+		return err
 	}
 
+	progressBar.Stop()
+
 	if err := newFile.Close(); err != nil {
-		return fmt.Errorf("failed to close file: %w", err)
+		return err
 	}
 
 	// Rename to final path after successful download
 	if err := os.Rename(outputPath, finalPath); err != nil {
-		return fmt.Errorf("failed to rename file: %w", err)
+		return err
 	}
 
-	fmt.Println("Received file completely!")
+	pterm.Success.Printf("File saved: %s\n", finalPath)
 	return nil
 }
 
@@ -103,14 +115,32 @@ func (c *Client) sendRequest(conn io.Writer, fileName string) error {
 	return err
 }
 
-func (c *Client) readFileContent(conn io.Reader, fileSize int64, dest io.Writer) error {
-	written, err := io.CopyN(dest, conn, fileSize)
-	if err != nil {
-		return fmt.Errorf("copy failed after %d bytes: %w", written, err)
+func (c *Client) readFileContentWithProgress(conn io.Reader, fileSize int64, dest io.Writer, progressBar *pterm.ProgressbarPrinter) error {
+	buffer := make([]byte, config.BufferSize)
+	var totalWritten int64
+
+	for totalWritten < fileSize {
+		n, err := conn.Read(buffer)
+		if err != nil && err != io.EOF {
+			return err
+		}
+
+		if n > 0 {
+			written, err := dest.Write(buffer[:n])
+			if err != nil {
+				return err
+			}
+			totalWritten += int64(written)
+			progressBar.Add(written)
+		}
+
+		if err == io.EOF {
+			break
+		}
 	}
 
-	if written != fileSize {
-		return fmt.Errorf("expected %d bytes, got %d", fileSize, written)
+	if totalWritten != fileSize {
+		pterm.Warning.Printf("Expected %d bytes, got %d\n", fileSize, totalWritten)
 	}
 
 	return nil

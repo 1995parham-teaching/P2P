@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pterm/pterm"
+
 	"github.com/1995parham-teaching/P2P/internal/cluster"
 	"github.com/1995parham-teaching/P2P/internal/config"
 	"github.com/1995parham-teaching/P2P/internal/message"
@@ -88,18 +90,18 @@ func (s *Server) Up(ctx context.Context, tcpPort <-chan int, request chan<- stri
 			case <-ctx.Done():
 				return nil
 			default:
-				fmt.Printf("UDP read error: %v\n", err)
+				pterm.Error.Printf("UDP read error: %v\n", err)
 				continue
 			}
 		}
 
 		// Parse the message
 		msgStr := strings.TrimSpace(string(buffer[:n]))
-		fmt.Println("Received:", msgStr)
+		pterm.Debug.Printf("Received: %s\n", msgStr)
 
 		msg, err := message.Unmarshal(msgStr)
 		if err != nil {
-			fmt.Printf("Failed to unmarshal message: %v\n", err)
+			pterm.Error.Printf("Failed to unmarshal message: %v\n", err)
 			continue
 		}
 
@@ -108,7 +110,7 @@ func (s *Server) Up(ctx context.Context, tcpPort <-chan int, request chan<- stri
 }
 
 func (s *Server) handleMessage(ctx context.Context, msg message.Message, remoteAddr *net.UDPAddr, tcpPort int, request chan<- string, fName chan<- string) {
-	fmt.Println("Processing message")
+	pterm.Debug.Println("Processing message")
 
 	switch t := msg.(type) {
 	case *message.Discover:
@@ -154,7 +156,7 @@ func (s *Server) transfer(addr *net.UDPAddr, msg string) {
 	}
 
 	if _, err := s.conn.WriteToUDP([]byte(msg), addr); err != nil {
-		fmt.Printf("Failed to send transfer message: %v\n", err)
+		pterm.Error.Printf("Failed to send transfer message: %v\n", err)
 	}
 }
 
@@ -168,7 +170,7 @@ func (s *Server) Discover(ctx context.Context) {
 			list := s.Cluster.List()
 			msg := (&message.Discover{List: list}).Marshal()
 			if err := s.Cluster.Broadcast(s.conn, msg); err != nil {
-				fmt.Printf("Discovery broadcast error: %v\n", err)
+				pterm.Error.Printf("Discovery broadcast error: %v\n", err)
 			}
 		}
 	}
@@ -184,7 +186,7 @@ func (s *Server) File(ctx context.Context) {
 
 	msg := (&message.Get{Name: s.Req}).Marshal()
 	if err := s.Cluster.Broadcast(s.conn, msg); err != nil {
-		fmt.Printf("File request broadcast error: %v\n", err)
+		pterm.Error.Printf("File request broadcast error: %v\n", err)
 	}
 
 	// Wait for timeout or response
@@ -241,7 +243,7 @@ func (s *Server) rebuildFileIndex() {
 	})
 
 	if err != nil {
-		fmt.Printf("Error rebuilding file index: %v\n", err)
+		pterm.Error.Printf("Error rebuilding file index: %v\n", err)
 	}
 }
 
