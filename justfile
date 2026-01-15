@@ -6,15 +6,16 @@ default:
     @just --list
 
 # Binary name
+
 binary := "p2p"
 
 # Build the application
 build:
-    go build -o {{binary}} ./cmd/p2p
+    go build -o {{ binary }} ./cmd/p2p
 
 # Run the application
 run: build
-    ./{{binary}}
+    ./{{ binary }}
 
 # Run tests
 test:
@@ -27,7 +28,7 @@ test-coverage:
 
 # Clean build artifacts
 clean:
-    rm -f {{binary}} coverage.out coverage.html
+    rm -f {{ binary }} coverage.out coverage.html
     go clean
 
 # Format code
@@ -56,7 +57,7 @@ docker-logs:
 
 # Attach to a specific node (usage: just attach node1)
 attach node="node1":
-    docker attach p2p-{{node}}
+    docker attach p2p-{{ node }}
 
 # Setup demo files
 demo-setup:
