@@ -9,12 +9,10 @@ import (
 )
 
 type Config struct {
-	Host              string `mapstructure:"host"`
-	Port              int    `mapstructure:"port"`
-	DiscoveryPeriod   int    `mapstructure:"period"`
-	WaitingTime       int    `mapstructure:"waiting"`
-	Type              int    `mapstructure:"type"`
-	ReliableUDPServer string `mapstructure:"addr"`
+	Host            string `mapstructure:"host"`
+	Port            int    `mapstructure:"port"`
+	DiscoveryPeriod int    `mapstructure:"period"`
+	WaitingTime     int    `mapstructure:"waiting"`
 }
 
 func Read() Config {

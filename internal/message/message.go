@@ -1,13 +1,11 @@
 package message
 
 import (
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 
-	reliableMsg "github.com/elahe-dastan/reliable_UDP/message"
 	"github.com/1995parham-teaching/P2P/internal/config"
 )
 
@@ -16,7 +14,6 @@ var (
 	ErrUnknownMessage   = errors.New("unknown message type")
 	ErrInvalidPort      = errors.New("invalid port number")
 	ErrInvalidMethod    = errors.New("invalid transfer method")
-	ErrInvalidSize      = errors.New("invalid file size")
 )
 
 type Message interface {
@@ -34,29 +31,6 @@ type Get struct {
 type File struct {
 	Method  int
 	TCPPort int
-	UDPPort int
-}
-
-type StopWait struct{}
-
-type AskFile struct {
-	Name string
-}
-
-type Size struct {
-	Size int64
-}
-
-type FileName struct {
-	Name string
-}
-
-type Segment struct {
-	Part []byte
-}
-
-type Acknowledgment struct {
-	Seq int
 }
 
 func (d *Discover) Marshal() string {
@@ -69,35 +43,7 @@ func (g *Get) Marshal() string {
 }
 
 func (f *File) Marshal() string {
-	if f.Method == config.TransferMethodTCP {
-		return fmt.Sprintf("%s,%d,%d\n", config.MsgFile, f.Method, f.TCPPort)
-	}
-	// Reliable UDP
-	return fmt.Sprintf("%s,%d,%d\n", config.MsgFile, f.Method, f.UDPPort)
-}
-
-func (s *StopWait) Marshal() string {
-	return fmt.Sprintf("%s\n", config.MsgStopWait)
-}
-
-func (a *AskFile) Marshal() string {
-	return fmt.Sprintf("%s,%s\n", config.MsgAsk, a.Name)
-}
-
-func (a *Acknowledgment) Marshal() string {
-	return fmt.Sprintf("%s,%d\n", config.MsgAck, a.Seq)
-}
-
-func (s *Size) Marshal() string {
-	return fmt.Sprintf("%s,%d\n", reliableMsg.Size, s.Size)
-}
-
-func (n *FileName) Marshal() string {
-	return fmt.Sprintf("%s,%s\n", reliableMsg.FileName, n.Name)
-}
-
-func (s *Segment) Marshal() string {
-	return fmt.Sprintf("%s,%s\n", reliableMsg.Segment, base64.StdEncoding.EncodeToString(s.Part))
+	return fmt.Sprintf("%s,%d,%d\n", config.MsgFile, f.Method, f.TCPPort)
 }
 
 // Unmarshal parses a message string into a Message type
@@ -143,81 +89,7 @@ func Unmarshal(s string) (Message, error) {
 			return nil, fmt.Errorf("%w: %v", ErrInvalidPort, err)
 		}
 
-		if method == config.TransferMethodTCP {
-			return &File{Method: method, TCPPort: port}, nil
-		}
-		return &File{Method: method, UDPPort: port}, nil
-
-	case config.MsgStopWait:
-		return &StopWait{}, nil
-
-	case config.MsgAsk:
-		if len(parts) < 2 {
-			return nil, fmt.Errorf("%w: Ask message requires file name", ErrMalformedMessage)
-		}
-		return &AskFile{Name: parts[1]}, nil
-
-	case config.MsgBuffer:
-		if len(parts) < 3 {
-			return nil, fmt.Errorf("%w: Buffer message requires data", ErrMalformedMessage)
-		}
-		part, err := base64.StdEncoding.DecodeString(parts[2])
-		if err != nil {
-			return nil, fmt.Errorf("failed to decode buffer: %w", err)
-		}
-		return &Segment{Part: part}, nil
-
-	default:
-		return nil, fmt.Errorf("%w: %s", ErrUnknownMessage, parts[0])
-	}
-}
-
-// ReliableUDPUnmarshal parses a reliable UDP protocol message
-func ReliableUDPUnmarshal(s string) (Message, error) {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return nil, ErrMalformedMessage
-	}
-
-	s = strings.Split(s, "\n")[0]
-	parts := strings.Split(s, ",")
-
-	if len(parts) == 0 {
-		return nil, ErrMalformedMessage
-	}
-
-	switch parts[0] {
-	case reliableMsg.Size:
-		if len(parts) < 2 {
-			return nil, fmt.Errorf("%w: Size message requires size value", ErrMalformedMessage)
-		}
-		size, err := strconv.ParseInt(parts[1], 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("%w: %v", ErrInvalidSize, err)
-		}
-		return &Size{Size: size}, nil
-
-	case reliableMsg.FileName:
-		if len(parts) < 2 {
-			return nil, fmt.Errorf("%w: FileName message requires name", ErrMalformedMessage)
-		}
-		return &FileName{Name: parts[1]}, nil
-
-	case reliableMsg.Segment:
-		if len(parts) < 2 {
-			return nil, fmt.Errorf("%w: Segment message requires data", ErrMalformedMessage)
-		}
-		part, err := base64.StdEncoding.DecodeString(parts[1])
-		if err != nil {
-			return nil, fmt.Errorf("failed to decode segment: %w", err)
-		}
-		return &Segment{Part: part}, nil
-
-	case config.MsgGet:
-		if len(parts) < 2 {
-			return nil, fmt.Errorf("%w: Get message requires file name", ErrMalformedMessage)
-		}
-		return &Get{Name: parts[1]}, nil
+		return &File{Method: method, TCPPort: port}, nil
 
 	default:
 		return nil, fmt.Errorf("%w: %s", ErrUnknownMessage, parts[0])

@@ -24,8 +24,6 @@ type Server struct {
 	Req             string
 	folder          string
 	conn            *net.UDPConn
-	method          int
-	UDPPort         int
 
 	// File request state
 	waiting       bool
@@ -42,7 +40,7 @@ type Server struct {
 }
 
 func New(ip string, port int, cluster *cluster.Cluster,
-	ticker *time.Ticker, waitingDuration int, folder string, method int, udpPort int) *Server {
+	ticker *time.Ticker, waitingDuration int, folder string) *Server {
 	s := &Server{
 		IP:              ip,
 		Port:            port,
@@ -51,8 +49,6 @@ func New(ip string, port int, cluster *cluster.Cluster,
 		waitingDuration: time.Duration(waitingDuration) * time.Second,
 		folder:          folder,
 		prior:           make([]string, 0),
-		method:          method,
-		UDPPort:         udpPort,
 		fileIndex:       make(map[string]string),
 	}
 
@@ -63,7 +59,7 @@ func New(ip string, port int, cluster *cluster.Cluster,
 }
 
 // Up starts the UDP server and listens for incoming messages
-func (s *Server) Up(ctx context.Context, tcpPort <-chan int, request chan<- string, fName chan<- string, uRequest chan<- string, uFName chan<- string) error {
+func (s *Server) Up(ctx context.Context, tcpPort <-chan int, request chan<- string, fName chan<- string) error {
 	tPort := <-tcpPort
 
 	addr := net.UDPAddr{
@@ -107,11 +103,11 @@ func (s *Server) Up(ctx context.Context, tcpPort <-chan int, request chan<- stri
 			continue
 		}
 
-		s.handleMessage(ctx, msg, remoteAddr, tPort, request, fName, uRequest, uFName)
+		s.handleMessage(ctx, msg, remoteAddr, tPort, request, fName)
 	}
 }
 
-func (s *Server) handleMessage(ctx context.Context, msg message.Message, remoteAddr *net.UDPAddr, tcpPort int, request chan<- string, fName chan<- string, uRequest chan<- string, uFName chan<- string) {
+func (s *Server) handleMessage(ctx context.Context, msg message.Message, remoteAddr *net.UDPAddr, tcpPort int, request chan<- string, fName chan<- string) {
 	fmt.Println("Processing message")
 
 	switch t := msg.(type) {
@@ -122,9 +118,8 @@ func (s *Server) handleMessage(ctx context.Context, msg message.Message, remoteA
 	case *message.Get:
 		if s.Search(t.Name) {
 			go s.transfer(remoteAddr, (&message.File{
-				Method:  s.method,
+				Method:  config.TransferMethodTCP,
 				TCPPort: tcpPort,
-				UDPPort: s.UDPPort,
 			}).Marshal())
 		}
 
@@ -146,14 +141,8 @@ func (s *Server) handleMessage(ctx context.Context, msg message.Message, remoteA
 			s.waitingMutex.Unlock()
 
 			ip := remoteAddr.IP.String()
-
-			if t.Method == config.TransferMethodTCP {
-				request <- fmt.Sprintf("%s:%d", ip, t.TCPPort)
-				fName <- s.Req
-			} else {
-				uRequest <- fmt.Sprintf("%s:%d", ip, t.UDPPort)
-				uFName <- s.Req
-			}
+			request <- fmt.Sprintf("%s:%d", ip, t.TCPPort)
+			fName <- s.Req
 		}
 	}
 }

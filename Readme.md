@@ -1,32 +1,31 @@
 # P2P File Sharing
 
-A peer-to-peer file sharing application demonstrating socket programming concepts in Go. Nodes discover each other, share cluster membership, and transfer files using either TCP or a reliable UDP protocol.
+A peer-to-peer file sharing application demonstrating socket programming concepts in Go. Nodes discover each other, share cluster membership, and transfer files using TCP.
 
 ## Architecture Overview
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
 │                          Node                               │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │  UDP Server │  │  TCP Server │  │  Reliable UDP Server│  │
-│  │  (Discovery │  │  (File      │  │  (Stop-and-Wait     │  │
-│  │   & Control)│  │   Transfer) │  │   File Transfer)    │  │
-│  └──────┬──────┘  └──────┬──────┘  └──────────┬──────────┘  │
-│         │                │                    │             │
-│         └────────────────┼────────────────────┘             │
-│                          │                                  │
-│                    ┌─────┴─────┐                            │
-│                    │  Cluster  │                            │
-│                    │  Manager  │                            │
-│                    └───────────┘                            │
+│  ┌─────────────┐  ┌─────────────┐                           │
+│  │  UDP Server │  │  TCP Server │                           │
+│  │  (Discovery │  │  (File      │                           │
+│  │   & Control)│  │   Transfer) │                           │
+│  └──────┬──────┘  └──────┬──────┘                           │
+│         │                │                                  │
+│         └────────────────┘                                  │
+│                │                                            │
+│          ┌─────┴─────┐                                      │
+│          │  Cluster  │                                      │
+│          │  Manager  │                                      │
+│          └───────────┘                                      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-Each node runs three servers:
+Each node runs two servers:
 
 - **UDP Server**: Handles peer discovery and file request coordination
 - **TCP Server**: Serves files to requesting peers (reliable, built-in)
-- **Reliable UDP Server**: Alternative file transfer using stop-and-wait protocol
 
 ## How It Works
 
@@ -34,7 +33,7 @@ Each node runs three servers:
 
 Nodes maintain a list of known peers (the "cluster"). Periodically, each node broadcasts its cluster list to all known peers via UDP:
 
-```
+```text
 Node A                     Node B                     Node C
    │                          │                          │
    │──DISCOVER,[B,C]─────────>│                          │
@@ -50,7 +49,7 @@ When a node receives a `DISCOVER` message, it merges the received list with its 
 
 When a user wants to download a file:
 
-```
+```text
 ┌────────┐                    ┌────────┐                    ┌────────┐
 │ Node A │                    │ Node B │                    │ Node C │
 │(wants  │                    │(has    │                    │(doesn't│
@@ -64,7 +63,7 @@ When a user wants to download a file:
     │                             │ 2. Search local files       │
     │                             │    Found!                   │
     │                             │                             │
-    │ 3. File,1,33680            │                             │
+    │ 3. File,1,33680             │                             │
     │<────────────────────────────│                             │
     │                             │                             │
     │ 4. TCP Connect to B:33680   │                             │
@@ -78,9 +77,9 @@ When a user wants to download a file:
 
 1. Node A broadcasts a `Get` message to all cluster members
 2. Each node searches its shared folder for the file
-3. Nodes that have the file respond with a `File` message containing the transfer method and port
+3. Nodes that have the file respond with a `File` message containing the TCP port
 4. Node A connects to the first responder
-5. File is transferred
+5. File is transferred via TCP
 
 ### 3. Priority Responders
 
@@ -101,16 +100,11 @@ All messages are newline-terminated strings with comma-separated fields.
 | -------- | ---------------------------------- | ------------------------------- |
 | Discover | `DISCOVER,ip1:port1,ip2:port2,...` | Share cluster membership        |
 | Get      | `Get,filename`                     | Request a file from the cluster |
-| File     | `File,method,port`                 | Respond that file is available  |
-
-**Method values:**
-
-- `1` = TCP transfer
-- `2` = Reliable UDP transfer
+| File     | `File,1,port`                      | Respond that file is available  |
 
 ### TCP File Transfer Protocol
 
-```
+```text
 ┌──────────────────────────────────────────────────────┐
 │ 1. Client sends: Get,filename\n                      │
 ├──────────────────────────────────────────────────────┤
@@ -123,15 +117,6 @@ All messages are newline-terminated strings with comma-separated fields.
 └──────────────────────────────────────────────────────┘
 ```
 
-### Reliable UDP Messages (Stop-and-Wait)
-
-| Message  | Format               | Description                         |
-| -------- | -------------------- | ----------------------------------- |
-| Size     | `Size,bytes`         | File size in bytes                  |
-| FileName | `Name,filename`      | Name of the file                    |
-| Segment  | `Segment,base64data` | File chunk (base64 encoded)         |
-| Ack      | `Ack,seq`            | Acknowledgment with sequence number |
-
 ## Configuration
 
 Configuration can be set via `config.yml` or environment variables (prefixed with `P2P_`):
@@ -141,15 +126,13 @@ host: "127.0.0.1" # Node's IP address
 port: 1378 # UDP port for discovery
 period: 20 # Discovery broadcast interval (seconds)
 waiting: 100 # File request timeout (seconds)
-type: 1 # Transfer method: 1=TCP, 2=Reliable UDP
-addr: "127.0.0.1:1999" # Reliable UDP server address
 ```
 
 ## Project Structure
 
 This project follows the [golang-standards/project-layout](https://github.com/golang-standards/project-layout):
 
-```
+```text
 P2P/
 ├── cmd/
 │   └── p2p/
@@ -283,7 +266,7 @@ Each node runs in its own container with a pre-configured shared folder:
 
 ```bash
 # Attach to node1
-just attachnode1
+just attach node1
 
 # Or directly with docker:
 docker attach p2p-node1
@@ -300,7 +283,7 @@ docker attach p2p-node1
 2. **Attach to node1:**
 
    ```bash
-   just attachnode1
+   just attach node1
    ```
 
 3. **List cluster members:**
@@ -352,43 +335,6 @@ When running with Docker, the following environment variables configure the node
 | `P2P_PORT`    | UDP port for discovery                 | `1378`                  |
 | `P2P_FOLDER`  | Shared folder path                     | `/app/shared`           |
 | `P2P_CLUSTER` | Comma-separated list of peer addresses | `node2:1378,node3:1378` |
-
-## Reliable Data Transfer Methods
-
-### 1. TCP (Method 1)
-
-Uses Go's built-in TCP for reliable, ordered delivery. The OS handles:
-
-- Connection establishment (3-way handshake)
-- Flow control
-- Congestion control
-- Retransmission of lost packets
-
-### 2. Stop-and-Wait over UDP (Method 2)
-
-Implements reliability on top of UDP using alternating bit protocol:
-
-```
-Sender                                    Receiver
-   │                                          │
-   │──────Segment(seq=0, data)───────────────>│
-   │                                          │
-   │<─────────────Ack(seq=0)──────────────────│
-   │                                          │
-   │──────Segment(seq=1, data)───────────────>│
-   │                                          │
-   │<─────────────Ack(seq=1)──────────────────│
-   │                                          │
-   │──────Segment(seq=0, data)───────────────>│
-   │              (lost)                      │
-   │                                          │
-   │  (timeout, retransmit)                   │
-   │──────Segment(seq=0, data)───────────────>│
-   │                                          │
-   │<─────────────Ack(seq=0)──────────────────│
-```
-
-The sequence number alternates between 0 and 1. If an ACK isn't received within the timeout, the segment is retransmitted.
 
 ## Security Considerations
 

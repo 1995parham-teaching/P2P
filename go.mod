@@ -2,10 +2,7 @@ module github.com/1995parham-teaching/P2P
 
 go 1.25
 
-require (
-	github.com/elahe-dastan/reliable_UDP v0.0.0-20200630170625-0f92fd6357b5
-	github.com/spf13/viper v1.7.0
-)
+require github.com/spf13/viper v1.7.0
 
 require (
 	github.com/fsnotify/fsnotify v1.4.9 // indirect

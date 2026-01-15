@@ -21,9 +21,6 @@ const (
 const (
 	// TransferMethodTCP indicates TCP-based file transfer
 	TransferMethodTCP = 1
-
-	// TransferMethodReliableUDP indicates reliable UDP-based file transfer
-	TransferMethodReliableUDP = 2
 )
 
 // Timing constants
@@ -37,10 +34,4 @@ const (
 	MsgDiscover = "DISCOVER"
 	MsgGet      = "Get"
 	MsgFile     = "File"
-	MsgStopWait = "SW"
-	MsgAsk      = "Ask"
-	MsgFileSize = "FSize"
-	MsgFileName = "Name"
-	MsgBuffer   = "buffer"
-	MsgAck      = "Ack"
 )

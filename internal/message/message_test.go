@@ -48,30 +48,12 @@ func TestGetMarshal(t *testing.T) {
 }
 
 func TestFileMarshal(t *testing.T) {
-	tests := []struct {
-		name     string
-		file     *File
-		expected string
-	}{
-		{
-			name:     "TCP method",
-			file:     &File{Method: 1, TCPPort: 33680},
-			expected: "File,1,33680\n",
-		},
-		{
-			name:     "UDP method",
-			file:     &File{Method: 2, UDPPort: 1999},
-			expected: "File,2,1999\n",
-		},
-	}
+	file := &File{Method: 1, TCPPort: 33680}
+	expected := "File,1,33680\n"
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := tt.file.Marshal()
-			if result != tt.expected {
-				t.Errorf("Marshal() = %q, want %q", result, tt.expected)
-			}
-		})
+	result := file.Marshal()
+	if result != expected {
+		t.Errorf("Marshal() = %q, want %q", result, expected)
 	}
 }
 
@@ -95,21 +77,9 @@ func TestUnmarshal(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:        "file TCP message",
+			name:        "file message",
 			input:       "File,1,33680",
 			expectType:  "File",
-			expectError: false,
-		},
-		{
-			name:        "file UDP message",
-			input:       "File,2,1999",
-			expectType:  "File",
-			expectError: false,
-		},
-		{
-			name:        "stop wait message",
-			input:       "SW",
-			expectType:  "StopWait",
 			expectError: false,
 		},
 		{
@@ -167,10 +137,6 @@ func TestUnmarshal(t *testing.T) {
 				if _, ok := result.(*File); !ok {
 					t.Errorf("Unmarshal() expected *File, got %T", result)
 				}
-			case "StopWait":
-				if _, ok := result.(*StopWait); !ok {
-					t.Errorf("Unmarshal() expected *StopWait, got %T", result)
-				}
 			}
 		})
 	}
@@ -215,45 +181,23 @@ func TestUnmarshalGet(t *testing.T) {
 }
 
 func TestUnmarshalFile(t *testing.T) {
-	t.Run("TCP method", func(t *testing.T) {
-		input := "File,1,33680"
-		result, err := Unmarshal(input)
-		if err != nil {
-			t.Fatalf("Unmarshal() error: %v", err)
-		}
+	input := "File,1,33680"
+	result, err := Unmarshal(input)
+	if err != nil {
+		t.Fatalf("Unmarshal() error: %v", err)
+	}
 
-		file, ok := result.(*File)
-		if !ok {
-			t.Fatalf("Expected *File, got %T", result)
-		}
+	file, ok := result.(*File)
+	if !ok {
+		t.Fatalf("Expected *File, got %T", result)
+	}
 
-		if file.Method != 1 {
-			t.Errorf("Method = %d, want %d", file.Method, 1)
-		}
-		if file.TCPPort != 33680 {
-			t.Errorf("TCPPort = %d, want %d", file.TCPPort, 33680)
-		}
-	})
-
-	t.Run("UDP method", func(t *testing.T) {
-		input := "File,2,1999"
-		result, err := Unmarshal(input)
-		if err != nil {
-			t.Fatalf("Unmarshal() error: %v", err)
-		}
-
-		file, ok := result.(*File)
-		if !ok {
-			t.Fatalf("Expected *File, got %T", result)
-		}
-
-		if file.Method != 2 {
-			t.Errorf("Method = %d, want %d", file.Method, 2)
-		}
-		if file.UDPPort != 1999 {
-			t.Errorf("UDPPort = %d, want %d", file.UDPPort, 1999)
-		}
-	})
+	if file.Method != 1 {
+		t.Errorf("Method = %d, want %d", file.Method, 1)
+	}
+	if file.TCPPort != 33680 {
+		t.Errorf("TCPPort = %d, want %d", file.TCPPort, 33680)
+	}
 }
 
 func TestMarshalUnmarshalRoundTrip(t *testing.T) {
@@ -293,7 +237,7 @@ func TestMarshalUnmarshalRoundTrip(t *testing.T) {
 		}
 	})
 
-	t.Run("File TCP", func(t *testing.T) {
+	t.Run("File", func(t *testing.T) {
 		original := &File{Method: 1, TCPPort: 33680}
 		marshaled := original.Marshal()
 		result, err := Unmarshal(marshaled)
