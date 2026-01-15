@@ -74,6 +74,7 @@ func (s *Server) Up(ctx context.Context, tcpPort <-chan int, request chan<- stri
 		return fmt.Errorf("failed to start UDP server: %w", err)
 	}
 	s.conn = conn
+	pterm.Success.Printf("UDP server listening on %s:%d\n", s.IP, s.Port)
 
 	// Handle graceful shutdown
 	go func() {
@@ -115,14 +116,19 @@ func (s *Server) handleMessage(ctx context.Context, msg message.Message, remoteA
 	switch t := msg.(type) {
 	case *message.Discover:
 		host := fmt.Sprintf("%s:%d", s.IP, s.Port)
+		pterm.Debug.Printf("Received discovery from %s with %d peer(s)\n", remoteAddr.String(), len(t.List))
 		s.Cluster.Merge(host, t.List)
 
 	case *message.Get:
+		pterm.Info.Printf("Peer %s is requesting file '%s'\n", remoteAddr.String(), t.Name)
 		if s.Search(t.Name) {
+			pterm.Success.Printf("File '%s' found locally, responding to %s\n", t.Name, remoteAddr.String())
 			go s.transfer(remoteAddr, (&message.File{
 				Method:  config.TransferMethodTCP,
 				TCPPort: tcpPort,
 			}).Marshal())
+		} else {
+			pterm.Debug.Printf("File '%s' not found locally\n", t.Name)
 		}
 
 	case *message.File:
@@ -131,6 +137,8 @@ func (s *Server) handleMessage(ctx context.Context, msg message.Message, remoteA
 		s.waitingMutex.Unlock()
 
 		if isWaiting {
+			pterm.Success.Printf("Peer %s has file '%s' (TCP port: %d)\n", remoteAddr.IP.String(), s.Req, t.TCPPort)
+
 			// Add to prior list
 			s.addToPrior(remoteAddr.String())
 
@@ -143,20 +151,31 @@ func (s *Server) handleMessage(ctx context.Context, msg message.Message, remoteA
 			s.waitingMutex.Unlock()
 
 			ip := remoteAddr.IP.String()
-			request <- fmt.Sprintf("%s:%d", ip, t.TCPPort)
+			serverAddr := fmt.Sprintf("%s:%d", ip, t.TCPPort)
+			pterm.Info.Printf("Initiating TCP download from %s\n", serverAddr)
+			request <- serverAddr
 			fName <- s.Req
+		} else {
+			pterm.Debug.Printf("Received late file response from %s (no longer waiting)\n", remoteAddr.String())
 		}
 	}
 }
 
 func (s *Server) transfer(addr *net.UDPAddr, msg string) {
 	// Check if this is a priority responder
-	if !s.isPrior(addr.String()) {
+	isPrior := s.isPrior(addr.String())
+	if !isPrior {
+		pterm.Info.Printf("Waiting %v before responding (non-priority peer)...\n", config.NonPriorResponseDelay)
 		time.Sleep(config.NonPriorResponseDelay)
+	} else {
+		pterm.Info.Println("Responding immediately (priority peer)")
 	}
 
+	pterm.Info.Printf("Sending file response to %s\n", addr.String())
 	if _, err := s.conn.WriteToUDP([]byte(msg), addr); err != nil {
 		pterm.Error.Printf("Failed to send transfer message: %v\n", err)
+	} else {
+		pterm.Success.Printf("File response sent to %s\n", addr.String())
 	}
 }
 
@@ -184,6 +203,9 @@ func (s *Server) File(ctx context.Context) {
 	s.waitingCancel = cancel
 	s.waitingMutex.Unlock()
 
+	clusterSize := len(s.Cluster.List())
+	pterm.Info.Printf("Broadcasting file request for '%s' to %d peer(s)\n", s.Req, clusterSize)
+
 	msg := (&message.Get{Name: s.Req}).Marshal()
 	if err := s.Cluster.Broadcast(s.conn, msg); err != nil {
 		pterm.Error.Printf("File request broadcast error: %v\n", err)
@@ -193,9 +215,14 @@ func (s *Server) File(ctx context.Context) {
 	<-waitCtx.Done()
 
 	s.waitingMutex.Lock()
+	wasWaiting := s.waiting
 	s.waiting = false
 	s.waitingCancel = nil
 	s.waitingMutex.Unlock()
+
+	if wasWaiting {
+		pterm.Warning.Printf("No peer responded with file '%s' (timeout after %v)\n", s.Req, s.waitingDuration)
+	}
 }
 
 // Search checks if a file exists in the shared folder
@@ -272,6 +299,15 @@ func (s *Server) isPrior(addr string) bool {
 	defer s.priorMutex.RUnlock()
 
 	return contains(s.prior, addr)
+}
+
+// BroadcastDiscovery manually triggers a discovery broadcast
+func (s *Server) BroadcastDiscovery() {
+	list := s.Cluster.List()
+	msg := (&message.Discover{List: list}).Marshal()
+	if err := s.Cluster.Broadcast(s.conn, msg); err != nil {
+		pterm.Error.Printf("Discovery broadcast error: %v\n", err)
+	}
 }
 
 // Close shuts down the UDP server

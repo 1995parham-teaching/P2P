@@ -3,9 +3,9 @@ package cluster
 import (
 	"fmt"
 	"net"
-	"strconv"
-	"strings"
 	"sync"
+
+	"github.com/pterm/pterm"
 )
 
 type Cluster struct {
@@ -38,30 +38,19 @@ func (c *Cluster) Broadcast(conn *net.UDPConn, message string) error {
 	list := c.List() // Get thread-safe copy
 
 	var lastErr error
-	for _, ip := range list {
-		arr := strings.Split(ip, ":")
-		if len(arr) != 2 {
-			lastErr = fmt.Errorf("invalid address format: %s", ip)
-			fmt.Println(lastErr)
+	for _, address := range list {
+		// Use ResolveUDPAddr to handle both IP addresses and hostnames
+		addr, err := net.ResolveUDPAddr("udp", address)
+		if err != nil {
+			lastErr = fmt.Errorf("failed to resolve address %s: %w", address, err)
+			pterm.Error.Printf("Failed to resolve %s: %v\n", address, err)
 			continue
 		}
 
-		port, err := strconv.Atoi(arr[1])
+		_, err = conn.WriteToUDP([]byte(message), addr)
 		if err != nil {
-			lastErr = fmt.Errorf("invalid port in address %s: %w", ip, err)
-			fmt.Println(lastErr)
-			continue
-		}
-
-		addr := net.UDPAddr{
-			IP:   net.ParseIP(arr[0]),
-			Port: port,
-		}
-
-		_, err = conn.WriteToUDP([]byte(message), &addr)
-		if err != nil {
-			lastErr = fmt.Errorf("failed to send to %s: %w", ip, err)
-			fmt.Println(lastErr)
+			lastErr = fmt.Errorf("failed to send to %s: %w", address, err)
+			pterm.Error.Printf("Failed to send to %s: %v\n", address, err)
 		}
 	}
 
@@ -80,6 +69,7 @@ func (c *Cluster) Merge(host string, newList []string) {
 
 		if !contains(c.list, ip) {
 			c.list = append(c.list, ip)
+			pterm.Success.Printf("Discovered new peer: %s\n", ip)
 		}
 	}
 }
@@ -91,6 +81,7 @@ func (c *Cluster) Add(addr string) {
 
 	if addr != "" && !contains(c.list, addr) {
 		c.list = append(c.list, addr)
+		pterm.Success.Printf("Discovered new peer: %s\n", addr)
 	}
 }
 

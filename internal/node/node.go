@@ -18,6 +18,7 @@ import (
 const (
 	menuList     = "List cluster members"
 	menuGet      = "Download a file"
+	menuPing     = "Ping peers"
 	menuQuit     = "Quit"
 )
 
@@ -105,7 +106,7 @@ func (n *Node) Run() error {
 }
 
 func (n *Node) handleUserInput() error {
-	options := []string{menuList, menuGet, menuQuit}
+	options := []string{menuList, menuGet, menuPing, menuQuit}
 
 	for {
 		select {
@@ -136,6 +137,9 @@ func (n *Node) handleUserInput() error {
 
 		case menuGet:
 			n.downloadFile()
+
+		case menuPing:
+			n.pingPeers()
 
 		case menuQuit:
 			n.Shutdown()
@@ -199,6 +203,37 @@ func (n *Node) downloadFile() {
 	n.UDPServer.File(n.ctx)
 
 	spinner.Stop()
+}
+
+func (n *Node) pingPeers() {
+	peers := n.UDPServer.Cluster.List()
+
+	if len(peers) == 0 {
+		pterm.Warning.Println("No peers in cluster to ping")
+		return
+	}
+
+	pterm.Info.Printf("Pinging %d peer(s)...\n", len(peers))
+
+	// Trigger a discovery broadcast to check connectivity
+	beforeCount := n.UDPServer.Cluster.Size()
+
+	// Send discovery message
+	n.UDPServer.BroadcastDiscovery()
+
+	// Wait a moment for responses
+	time.Sleep(2 * time.Second)
+
+	afterCount := n.UDPServer.Cluster.Size()
+
+	pterm.Println()
+	pterm.Info.Printf("Discovery broadcast sent to %d peer(s)\n", len(peers))
+	if afterCount > beforeCount {
+		pterm.Success.Printf("Discovered %d new peer(s)\n", afterCount-beforeCount)
+	}
+
+	// Show current peers
+	n.showClusterMembers()
 }
 
 // Shutdown gracefully stops the node

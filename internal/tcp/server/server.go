@@ -43,6 +43,7 @@ func (s *Server) Up(ctx context.Context, tcpPort chan<- int) error {
 	s.listener = listener
 
 	s.TCPPort = listener.Addr().(*net.TCPAddr).Port
+	pterm.Success.Printf("TCP server listening on port %d\n", s.TCPPort)
 	tcpPort <- s.TCPPort
 
 	// Handle graceful shutdown
@@ -70,35 +71,39 @@ func (s *Server) Up(ctx context.Context, tcpPort chan<- int) error {
 func (s *Server) handleConnection(conn net.Conn) {
 	defer conn.Close()
 
+	remoteAddr := conn.RemoteAddr().String()
+	pterm.Info.Printf("TCP connection from %s\n", remoteAddr)
+
 	buffer := make([]byte, config.UDPBufferSize)
 	n, err := conn.Read(buffer)
 	if err != nil {
-		pterm.Error.Printf("Failed to read from connection: %v\n", err)
+		pterm.Error.Printf("Failed to read from %s: %v\n", remoteAddr, err)
 		return
 	}
 
 	msg, err := message.Unmarshal(string(buffer[:n]))
 	if err != nil {
-		pterm.Error.Printf("Failed to unmarshal message: %v\n", err)
+		pterm.Error.Printf("Failed to unmarshal message from %s: %v\n", remoteAddr, err)
 		return
 	}
 
 	getMsg, ok := msg.(*message.Get)
 	if !ok {
-		pterm.Warning.Println("Expected Get message, got something else")
+		pterm.Warning.Printf("Expected Get message from %s, got something else\n", remoteAddr)
 		return
 	}
 
+	pterm.Info.Printf("Peer %s requesting file '%s'\n", remoteAddr, getMsg.Name)
+
 	if err := s.send(conn, getMsg.Name); err != nil {
-		pterm.Error.Printf("Failed to send file: %v\n", err)
+		pterm.Error.Printf("Failed to send file to %s: %v\n", remoteAddr, err)
 	}
 }
 
 func (s *Server) send(conn io.Writer, name string) error {
-	pterm.Info.Println("A client has connected!")
-
 	// Use safe path to prevent directory traversal attacks
 	filePath := safePath(s.folder, name)
+	pterm.Debug.Printf("Resolved file path: %s\n", filePath)
 
 	file, err := os.Open(filePath)
 	if err != nil {
