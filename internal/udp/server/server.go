@@ -79,7 +79,7 @@ func (s *Server) Up(ctx context.Context, tcpPort <-chan int, request chan<- stri
 	// Handle graceful shutdown
 	go func() {
 		<-ctx.Done()
-		conn.Close()
+		_ = conn.Close()
 	}()
 
 	buffer := make([]byte, config.UDPBufferSize)

@@ -5,14 +5,15 @@ import (
 	"strings"
 
 	"github.com/pterm/pterm"
+	"github.com/pterm/pterm/putils"
 
 	"github.com/1995parham-teaching/P2P/internal/node"
 )
 
 func main() {
 	// Print header
-	pterm.DefaultBigText.WithLetters(
-		pterm.NewLettersFromStringWithStyle("P2P", pterm.NewStyle(pterm.FgCyan)),
+	_ = pterm.DefaultBigText.WithLetters(
+		putils.LettersFromStringWithStyle("P2P", pterm.NewStyle(pterm.FgCyan)),
 	).Render()
 
 	pterm.DefaultHeader.WithBackgroundStyle(pterm.NewStyle(pterm.BgDarkGray)).
@@ -31,7 +32,7 @@ func main() {
 		// Use environment variables
 		pterm.Info.Println("Using environment configuration")
 
-		pterm.DefaultBulletList.WithItems([]pterm.BulletListItem{
+		_ = pterm.DefaultBulletList.WithItems([]pterm.BulletListItem{
 			{Level: 0, Text: "Folder: " + pterm.LightCyan(folder)},
 			{Level: 0, Text: "Cluster: " + pterm.LightCyan(clusterEnv)},
 		}).Render()

@@ -49,7 +49,7 @@ func (s *Server) Up(ctx context.Context, tcpPort chan<- int) error {
 	// Handle graceful shutdown
 	go func() {
 		<-ctx.Done()
-		listener.Close()
+		_ = listener.Close()
 	}()
 
 	for {
@@ -69,7 +69,7 @@ func (s *Server) Up(ctx context.Context, tcpPort chan<- int) error {
 }
 
 func (s *Server) handleConnection(conn net.Conn) {
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	remoteAddr := conn.RemoteAddr().String()
 	pterm.Info.Printf("TCP connection from %s\n", remoteAddr)
@@ -109,7 +109,7 @@ func (s *Server) send(conn io.Writer, name string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	fileInfo, err := file.Stat()
 	if err != nil {
@@ -145,19 +145,19 @@ func (s *Server) send(conn io.Writer, name string) error {
 			break
 		}
 		if err != nil {
-			progressBar.Stop()
+			_, _ = progressBar.Stop()
 			return err
 		}
 
 		if _, err := conn.Write(sendBuffer[:n]); err != nil {
-			progressBar.Stop()
+			_, _ = progressBar.Stop()
 			return err
 		}
 
 		progressBar.Add(n)
 	}
 
-	progressBar.Stop()
+	_, _ = progressBar.Stop()
 	pterm.Success.Println("File sent successfully!")
 	return nil
 }

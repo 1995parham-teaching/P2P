@@ -169,7 +169,7 @@ func (n *Node) showClusterMembers() {
 		})
 	}
 
-	pterm.DefaultTable.
+	_ = pterm.DefaultTable.
 		WithHasHeader().
 		WithBoxed().
 		WithData(tableData).
@@ -202,7 +202,7 @@ func (n *Node) downloadFile() {
 	n.UDPServer.Req = fileName
 	n.UDPServer.File(n.ctx)
 
-	spinner.Stop()
+	_ = spinner.Stop()
 }
 
 func (n *Node) pingPeers() {
@@ -244,8 +244,8 @@ func (n *Node) Shutdown() {
 	n.cancel()
 
 	// Close servers
-	n.TCPServer.Close()
-	n.UDPServer.Close()
+	_ = n.TCPServer.Close()
+	_ = n.UDPServer.Close()
 
 	// Wait for goroutines to finish
 	n.wg.Wait()

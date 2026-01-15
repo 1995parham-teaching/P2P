@@ -62,7 +62,7 @@ func (c *Client) downloadFile(serverAddr, fileName string) error {
 	if err != nil {
 		return fmt.Errorf("failed to connect to %s (timeout: %v): %w", serverAddr, dialTimeout, err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	pterm.Success.Printf("Connected to %s\n", serverAddr)
 
@@ -109,12 +109,12 @@ func (c *Client) downloadFile(serverAddr, fileName string) error {
 
 	// Read file content with progress
 	if err := c.readFileContentWithProgress(conn, fileSize, newFile, progressBar); err != nil {
-		newFile.Close()
-		os.Remove(outputPath) // Clean up partial file
+		_ = newFile.Close()
+		_ = os.Remove(outputPath) // Clean up partial file
 		return err
 	}
 
-	progressBar.Stop()
+	_, _ = progressBar.Stop()
 
 	if err := newFile.Close(); err != nil {
 		return err
